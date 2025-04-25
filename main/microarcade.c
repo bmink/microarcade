@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 #include <esp_rotary.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -612,9 +613,22 @@ puttext(const char *text, const font_t *fo, int x, int y)
 }
 
 
+uint8_t	ball_buf[8] = {
+	/* "ball" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	   0x3c, 0x7e, 0xff, 0xff, 0xff, 0xff, 0x7e, 0x3c };
+
+
 typedef struct ball {
+	int16_t	xpos;
+	int16_t	ypos;
+	int8_t	xvel;
+	int8_t	yvel;
 } ball_t;
 
+
+#define MAX_BALLCNT 50
+ball_t balls[MAX_BALLCNT] = { 0 };
+int ballcnt = 10;
 
 void
 app_main(void)
@@ -700,12 +714,21 @@ int ypos = 0;
 int xspeed = 1;
 int yspeed = 1;
 
+srand((unsigned int)xTaskGetTickCount);
+
+ballcnt = 10;
+for(int i = 0; i < ballcnt; ++i) {
+	balls[i].xvel = rand() % 6;
+	balls[i].ypos = rand() % 50;
+}
+
+int ydirchange;
 while(1) {
 	
 	memset(frame, 0, 1024);
 
-	puttext("hello, world", &font_c64, 0, 0);
-	puttext("hello, world", &font_picopixel, 0, s);
+//	puttext("hello, world", &font_c64, 0, 0);
+//	puttext("hello, world", &font_picopixel, 0, 8);
 
 	puttext("hello, world", &font_c64, ypos, 0);
 	puttext("hello, world", &font_picopixel, 0, 50-ypos);
@@ -724,6 +747,45 @@ while(1) {
 		yspeed = -yspeed; 
 	}
 
+	for(int i = 0; i < ballcnt; ++i) {
+		ball_t *b = &balls[i];
+		b->xpos += b->xvel;
+		if(b->xpos > 120) {
+			b->xpos = 120 - (b->xpos - 120);
+			b->xvel = -b->xvel;
+		} else
+		if(b->xpos < 0) {
+			b->xpos = -b->xpos;
+			b->xvel = -b->xvel;
+		}
+			
+
+
+		ydirchange = 0;
+		b->ypos += b->yvel;
+		if(b->ypos >= 56) {
+//			b->ypos = 56 - (b->ypos - 56) * .7;
+			b->ypos = 56;
+//printf("old yvel=%d\n", b->yvel);
+			b->yvel = -b->yvel * .8;
+//			b->yvel = -b->yvel * .6;
+//printf("new yvel=%d\n", b->yvel);
+			++ydirchange;
+			if(abs(b->yvel) < 2) {
+				b->ypos = 0;
+				b->xpos = 0;
+				b->xvel = rand() % 20;
+				b->yvel = 0;
+			}
+		}
+
+		blt(ball_buf, 8, 8, b->xpos, b->ypos);
+
+		if(!ydirchange)
+			b->yvel += 2;
+//printf("yvel=%d, ypos=%d\n", b->yvel, b->ypos);
+	}
+
 	memset(&transact, 0, sizeof(spi_transaction_t));
 	transact.length = 1024 * 8;
 	transact.tx_buffer = frame;
@@ -732,6 +794,7 @@ while(1) {
 		printf("Could not send data\n");
 		goto err_label;
 	}
+
 
 	vTaskDelay(pdMS_TO_TICKS(100));
 	++idx;
