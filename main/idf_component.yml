@@ -1,0 +1,6 @@
+dependencies:
+  idf:
+    version: ">=4.1.0"
+
+  esp_rotary:
+    path: "../../esp_rotary"
