@@ -523,7 +523,93 @@ uint8_t	domy_buf[24][128] = {
 	  0x7f, 0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x00 }
 };
 
-uint8_t				frame[1024];
+spi_device_handle_t		devhand;
+
+
+
+#define FRAMESIZ	1024
+
+uint8_t		frame1[FRAMESIZ];
+uint8_t		frame2[FRAMESIZ];
+
+uint8_t		*curframe = frame1;
+
+SemaphoreHandle_t	sendframe_mutex;
+uint8_t			*sendframe = NULL;
+
+TaskHandle_t	frame_sender_task;
+
+
+static void
+frame_sender_loop(void *arg)
+{
+	int			ret;
+	spi_transaction_t	transact;
+	int			had_frame_to_send;
+
+	while(ulTaskNotifyTake(pdTRUE, portMAX_DELAY)) {
+		had_frame_to_send = 0;
+		xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
+		if(sendframe == NULL) {
+			goto next_iter;
+		}
+
+		/* Only we can set sendframe back to NULL, and the writer
+		 * will not notify as long as it it not NULL, so
+		 * it's safe to release the mutex here */
+		xSemaphoreGive(sendframe_mutex);
+
+printf("Sending frame\n");
+		memset(&transact, 0, sizeof(spi_transaction_t));
+		transact.length = 1024 * 8;
+		transact.tx_buffer = sendframe;
+		ret = spi_device_transmit(devhand, &transact);
+		if(ret != ESP_OK) {
+			printf("Could not send data\n");
+		}
+
+		++had_frame_to_send;	
+		xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
+		sendframe = NULL;
+
+next_iter:
+		xSemaphoreGive(sendframe_mutex);
+
+		if(!had_frame_to_send)
+			printf("Was woken up but nothing to send!\n");
+		
+	}
+	
+}
+
+
+void
+clearcurframe(void)
+{
+	memset(curframe, 0, FRAMESIZ);
+}
+
+
+void
+sendswapcurframe(void)
+{
+	xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
+	if(sendframe != NULL) {
+		printf("Dropping frame!\n");
+	} else {
+		sendframe = curframe;
+		if(curframe == frame1)
+			curframe = frame2;
+		else
+			curframe = frame1;
+		
+
+	}
+	xSemaphoreGive(sendframe_mutex);
+	xTaskNotifyGive(frame_sender_task);
+	clearcurframe();
+
+}
 
 void
 blt(uint8_t *buf, uint32_t buflen, int8_t spritewidth, int xpos, int ypos)
@@ -544,7 +630,7 @@ blt(uint8_t *buf, uint32_t buflen, int8_t spritewidth, int xpos, int ypos)
 	ymod = ypos % 8;
 
 	spritecur = buf;
-	framecur = frame + 128 * ybase + xpos;
+	framecur = curframe + 128 * ybase + xpos;
 	for(i = 0, x = xpos, y = ybase; i < buflen + spritewidth; ++i) {
 
 		if(x < 128 && y < 8) {
@@ -564,7 +650,7 @@ blt(uint8_t *buf, uint32_t buflen, int8_t spritewidth, int xpos, int ypos)
 		if(i > 0 && ((i+1) % spritewidth) == 0) {
 			x = xpos;
 			++y;
-			framecur = frame + 128 * y + xpos;
+			framecur = curframe + 128 * y + xpos;
 		} else
 			++framecur;
 
@@ -630,13 +716,17 @@ typedef struct ball {
 ball_t balls[MAX_BALLCNT] = { 0 };
 int ballcnt = 10;
 
+
+void menu_loop(void);
+
+
+
 void
 app_main(void)
 {
 	esp_err_t			ret;
 	spi_bus_config_t		spiconf;
 	spi_device_interface_config_t	devconf;
-	spi_device_handle_t		devhand;
 	spi_transaction_t		transact;
 
 	ret = ESP_OK;
@@ -644,35 +734,29 @@ app_main(void)
 	ESP_GOTO_ON_ERROR(config_led_gpio(GPIO_BLINK), err_label,
 	    logtag, "Could not configure LED on pin %d", GPIO_BLINK);
 
-vTaskDelay(pdMS_TO_TICKS(500));
 	memset(&spiconf, 0, sizeof(spi_bus_config_t));
 	spiconf.sclk_io_num = 17;
 	spiconf.mosi_io_num = 18;
-printf("mosi: %d\n", spiconf.mosi_io_num);
 
 	spiconf.quadwp_io_num = -1;
 	spiconf.quadhd_io_num = -1;
 
-printf("mosi: %d\n", spiconf.mosi_io_num);
 	ret = spi_bus_initialize(SPI2_HOST, &spiconf, SPI_DMA_CH_AUTO);
 	if(ret != ESP_OK) {
 		printf("Could not initialize SPI bus\n");
 		goto err_label;
 	}
-printf("mosi: %d\n", spiconf.mosi_io_num);
 
 	memset(&devconf, 0, sizeof(spi_device_interface_config_t));
 	devconf.clock_speed_hz = 10000000;
 	devconf.spics_io_num = 46;
 	devconf.queue_size = 16;
 	
-printf("adding device\n");
 	ret = spi_bus_add_device(SPI2_HOST, &devconf, &devhand);
 	if(ret != ESP_OK) {
 		printf("Could not add device\n");
 		goto err_label;
 	}
-printf("added device\n");
 
 	config_led_gpio(3);	/* DC */
 	config_led_gpio(8);	/* RESET */
@@ -680,16 +764,15 @@ printf("added device\n");
 
 	gpio_set_level(8, 0); /* Reset */
 	vTaskDelay(pdMS_TO_TICKS(100));
-	gpio_set_level(8, 1); /* Reset */
+	gpio_set_level(8, 1); 
 
 
-    uint8_t cmds[] = {
-	0x20, 0x00,	/* Horizontal addressing mode */
-	//0xa5,		/* All pixels on */
-	//0xa7,		/* Inverse */
-	0xaf		/* Display on */
-    };
-
+	uint8_t cmds[] = {
+		0x20, 0x00,	/* Horizontal addressing mode */
+		//0xa5,		/* All pixels on */
+		//0xa7,		/* Inverse */
+		0xaf		/* Display on */
+	};
 
 	gpio_set_level(3, 0); /* Command */
 
@@ -703,8 +786,19 @@ printf("added device\n");
 		goto err_label;
 	}
 
-
 	gpio_set_level(3, 1); /* Data */
+
+
+	ret = xTaskCreate(frame_sender_loop, "frame_sender_loop",
+	    4096, NULL, 20, &frame_sender_task);
+	if(ret != pdPASS)
+		goto err_label;
+
+	sendframe_mutex = xSemaphoreCreateMutex();
+
+	sendswapcurframe();
+
+	menu_loop();
 
 
 int idx = 0;
@@ -725,7 +819,7 @@ for(int i = 0; i < ballcnt; ++i) {
 int ydirchange;
 while(1) {
 	
-	memset(frame, 0, 1024);
+	memset(curframe, 0, 1024);
 
 //	puttext("hello, world", &font_c64, 0, 0);
 //	puttext("hello, world", &font_picopixel, 0, 8);
@@ -788,7 +882,7 @@ while(1) {
 
 	memset(&transact, 0, sizeof(spi_transaction_t));
 	transact.length = 1024 * 8;
-	transact.tx_buffer = frame;
+	transact.tx_buffer = curframe;
 	ret = spi_device_transmit(devhand, &transact);
 	if(ret != ESP_OK) {
 		printf("Could not send data\n");
@@ -803,38 +897,6 @@ while(1) {
 }
 
 
-goto err_label;
-
-#if 0
-
-while(1) {
-	uint8_t	*r;
-
-	r = &rocket[idx][0];
-
-	for(int i = 0; i < 24; ++i) {
-		memcpy(frame + i, r + 2 + i * 3, 1);
-		memcpy(frame + i + 256, r + i * 3, 1);
-		memcpy(frame + i + 128, r + 1 + i * 3, 1);
-	}
-
-	memset(&transact, 0, sizeof(spi_transaction_t));
-	transact.length = 1024 * 8;
-	transact.tx_buffer = frame;
-	ret = spi_device_transmit(devhand, &transact);
-	if(ret != ESP_OK) {
-		printf("Could not send data\n");
-		goto err_label;
-	}
-
-	vTaskDelay(pdMS_TO_TICKS(35));
-	++idx;
-	if(idx > 23)
-		idx = 0;
-		
-}
-#endif
-
 err_label:
 
 	printf("Error: %s\n", esp_err_to_name(ret));
@@ -845,4 +907,77 @@ err_label:
 		gpio_set_level(GPIO_BLINK, 1);
 		vTaskDelay(pdMS_TO_TICKS(100));
 	}
+}
+
+
+
+
+typedef struct menu_item {
+	const char	*mi_text;
+	void		(*mi_start_func)(void);
+} menu_item_t;
+
+#define MENU_ITEMCNT	8
+
+menu_item_t	mitem[MENU_ITEMCNT] = {
+	{ "Rotary Test", NULL },
+	{ "Bouncy Balls", NULL },
+	{ "Clock", NULL },
+	{ "Etch-a-Sketch", NULL },
+	{ "Space Dodge", NULL },
+	{ "Lander", NULL },
+	{ "Test1", NULL },
+	{ "Test2", NULL }
+};
+
+uint8_t	mselidx;
+uint8_t	mdispidx;
+
+
+#define MENU_LINEMAXLEN	16
+#define MENU_LINECNT	6
+
+
+void
+menu_loop(void)
+{
+	int	i;
+	char	displin[MENU_LINEMAXLEN];
+	int	dir;
+
+	dir = 1;
+	while(1) {
+
+		/* Draw menu */
+		for(i = 0; i < MENU_LINECNT; ++i) {
+			if(i >= MENU_ITEMCNT || i + mdispidx >= MENU_ITEMCNT)
+				break;
+
+			snprintf(displin, MENU_LINEMAXLEN, "%c%s",
+			    mdispidx + i == mselidx ? '*' : ' ',
+			    mitem[mdispidx + i].mi_text);
+
+			puttext(displin, &font_c64, 0, i * 8);
+
+		}
+
+		sendswapcurframe();
+		vTaskDelay(pdMS_TO_TICKS(1000));
+
+		if(dir < 0 && mselidx == 0)
+			dir = 1;
+		else
+		if(dir > 0 && mselidx == MENU_ITEMCNT - 1)
+			dir = -1;
+		else
+			mselidx += dir;
+
+		if(mselidx < mdispidx) 
+			mdispidx -= MENU_LINECNT;
+		else
+		if(mselidx >= mdispidx + MENU_LINECNT) 
+			mdispidx += MENU_LINECNT;
+		
+	}
+	
 }
