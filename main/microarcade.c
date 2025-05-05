@@ -11,6 +11,7 @@
 #include "font.h"
 #include "font_c64.h"
 #include "font_picopixel.h"
+#include "microarcade.h"
 
 
 int
@@ -559,7 +560,6 @@ frame_sender_loop(void *arg)
 		 * it's safe to release the mutex here */
 		xSemaphoreGive(sendframe_mutex);
 
-printf("Sending frame\n");
 		memset(&transact, 0, sizeof(spi_transaction_t));
 		transact.length = 1024 * 8;
 		transact.tx_buffer = sendframe;
@@ -590,25 +590,53 @@ clearcurframe(void)
 }
 
 
+#define DISP_MODE_ADHOC	0
+#define DISP_MODE_FPS	1
+
+#define DISP_ADHOC_SENDTRY_WAITMS 10
+
+int disp_mode = DISP_MODE_ADHOC;
+int dropped_framecnt = 0;
+
 void
 sendswapcurframe(void)
 {
 	xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
+
 	if(sendframe != NULL) {
-		printf("Dropping frame!\n");
-	} else {
-		sendframe = curframe;
-		if(curframe == frame1)
-			curframe = frame2;
-		else
-			curframe = frame1;
-		
+		if(disp_mode == DISP_MODE_FPS) {
 
+			/* We are in fast mode. Frame has to be dropped */
+
+			printf("Dropping frame!\n");
+			++dropped_framecnt;
+			goto end_label;
+
+		} else { /* DISP_MODE_ADHOC */
+
+			/* We are in ad-hoc / slow update mode. Wait until
+			 * sendframe is clear and send our frame */
+
+			while(sendframe != NULL) {
+				xSemaphoreGive(sendframe_mutex);
+				vTaskDelay(pdMS_TO_TICKS(
+				    DISP_ADHOC_SENDTRY_WAITMS));
+				xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
+			}
+		}
 	}
-	xSemaphoreGive(sendframe_mutex);
-	xTaskNotifyGive(frame_sender_task);
-	clearcurframe();
 
+	sendframe = curframe;
+	if(curframe == frame1)
+		curframe = frame2;
+	else
+		curframe = frame1;
+
+	xTaskNotifyGive(frame_sender_task);
+
+end_label:
+	xSemaphoreGive(sendframe_mutex);
+	clearcurframe();
 }
 
 void
@@ -717,7 +745,32 @@ ball_t balls[MAX_BALLCNT] = { 0 };
 int ballcnt = 10;
 
 
-void menu_loop(void);
+
+typedef struct menu_item {
+	const char	*mi_text;
+	void		(*mi_start_func)(void);
+} menu_item_t;
+
+#define MENU_ITEMCNT	12
+
+menu_item_t	mitem[MENU_ITEMCNT] = {
+	{ "Rotary Test", NULL },
+	{ "Bouncy Balls", NULL },
+	{ "Pong", NULL },
+	{ "Clock", NULL },
+	{ "Etch-a-Sketch", NULL },
+	{ "Space Dodge", NULL },
+	{ "Lander", NULL },
+	{ "Bucket Catch", NULL },
+	{ "Test2", NULL },
+	{ "Test3", NULL },
+	{ "Set Clock", NULL },
+	{ "Test5", NULL }
+};
+
+
+#define MENU_LINEMAXLEN	16
+#define MENU_LINECNT	8
 
 
 
@@ -728,6 +781,11 @@ app_main(void)
 	spi_bus_config_t		spiconf;
 	spi_device_interface_config_t	devconf;
 	spi_transaction_t		transact;
+	rotary_config_t			rconf[ROTARY_CNT];
+	uint8_t				mselidx;
+	uint8_t				mdispidx;
+	rotary_event_t			rev;
+
 
 	ret = ESP_OK;
 
@@ -735,8 +793,8 @@ app_main(void)
 	    logtag, "Could not configure LED on pin %d", GPIO_BLINK);
 
 	memset(&spiconf, 0, sizeof(spi_bus_config_t));
-	spiconf.sclk_io_num = 17;
-	spiconf.mosi_io_num = 18;
+	spiconf.sclk_io_num = 4;
+	spiconf.mosi_io_num = 5;
 
 	spiconf.quadwp_io_num = -1;
 	spiconf.quadhd_io_num = -1;
@@ -749,7 +807,7 @@ app_main(void)
 
 	memset(&devconf, 0, sizeof(spi_device_interface_config_t));
 	devconf.clock_speed_hz = 10000000;
-	devconf.spics_io_num = 46;
+	devconf.spics_io_num = 15;
 	devconf.queue_size = 16;
 	
 	ret = spi_bus_add_device(SPI2_HOST, &devconf, &devhand);
@@ -758,13 +816,13 @@ app_main(void)
 		goto err_label;
 	}
 
-	config_led_gpio(3);	/* DC */
-	config_led_gpio(8);	/* RESET */
+	config_led_gpio(7);	/* DC */
+	config_led_gpio(6);	/* RESET */
 
 
-	gpio_set_level(8, 0); /* Reset */
+	gpio_set_level(6, 0); /* Reset */
 	vTaskDelay(pdMS_TO_TICKS(100));
-	gpio_set_level(8, 1); 
+	gpio_set_level(6, 1); 
 
 
 	uint8_t cmds[] = {
@@ -774,7 +832,7 @@ app_main(void)
 		0xaf		/* Display on */
 	};
 
-	gpio_set_level(3, 0); /* Command */
+	gpio_set_level(7, 0); /* Command */
 
 	memset(&transact, 0, sizeof(spi_transaction_t));
 	transact.length = sizeof(cmds) * 8;
@@ -786,7 +844,7 @@ app_main(void)
 		goto err_label;
 	}
 
-	gpio_set_level(3, 1); /* Data */
+	gpio_set_level(7, 1); /* Data */
 
 
 	ret = xTaskCreate(frame_sender_loop, "frame_sender_loop",
@@ -798,7 +856,92 @@ app_main(void)
 
 	sendswapcurframe();
 
-	menu_loop();
+	memset(rconf, 0, sizeof(rotary_config_t) * ROTARY_CNT);
+	rconf[ROTARY_LEFT].rc_pin_a = 45;
+	rconf[ROTARY_LEFT].rc_pin_b = 0;
+	rconf[ROTARY_LEFT].rc_pin_button = 35;
+	rconf[ROTARY_LEFT].rc_style = ROT_STYLE_BOUND;
+	rconf[ROTARY_LEFT].rc_min = 0;
+	rconf[ROTARY_LEFT].rc_max = MENU_ITEMCNT;
+	rconf[ROTARY_LEFT].rc_start = 0;
+
+	rconf[ROTARY_RIGHT].rc_pin_a = 21;
+	rconf[ROTARY_RIGHT].rc_pin_b = 47;
+	rconf[ROTARY_RIGHT].rc_pin_button = 48;
+	rconf[ROTARY_RIGHT].rc_style = ROT_STYLE_BOUND;
+	rconf[ROTARY_RIGHT].rc_min = 0;
+	rconf[ROTARY_RIGHT].rc_max = MENU_ITEMCNT;
+	rconf[ROTARY_RIGHT].rc_start = 0;
+
+
+	if(rotary_config(rconf, ROTARY_CNT) != ESP_OK) {
+		printf("Could not configure rotary encoders\n");
+		goto err_label;
+	}
+
+	int	i;
+	char	displin[MENU_LINEMAXLEN];
+	mselidx = 0;
+
+	while(1) {
+printf("Redrawing menu\n");
+		mdispidx = (mselidx / MENU_LINECNT) * MENU_LINECNT;
+		/* Draw menu */
+		for(i = 0; i < MENU_LINECNT; ++i) {
+			if(i >= MENU_ITEMCNT || i + mdispidx >= MENU_ITEMCNT)
+				break;
+
+			snprintf(displin, MENU_LINEMAXLEN, "%c%s",
+			    mdispidx + i == mselidx ? '*' : ' ',
+			    mitem[mdispidx + i].mi_text);
+
+			puttext(displin, &font_c64, 0, i * 8);
+		}
+
+		sendswapcurframe();
+
+		/* Wait for rotary event */
+		if(xQueueReceive(rotary_event_queue, &rev, portMAX_DELAY)
+		    != pdPASS)
+			continue;
+
+		if(rev.re_idx != ROTARY_LEFT)
+			continue;
+
+		switch(rev.re_type) {
+		case ROT_EVENT_INCREMENT:
+		case ROT_EVENT_DECREMENT:
+			if(rev.re_value >=0 && rev.re_value < MENU_ITEMCNT)
+				mselidx = rev.re_value;
+
+			break;
+
+		case ROT_EVENT_BUTTON_PRESS:
+
+			break;
+
+		default:
+			break;
+
+		}
+
+	}
+
+err_label:
+
+	printf("Error: %s\n", esp_err_to_name(ret));
+
+	while (1) {
+       		gpio_set_level(GPIO_BLINK, 0);
+		vTaskDelay(pdMS_TO_TICKS(100));
+		gpio_set_level(GPIO_BLINK, 1);
+		vTaskDelay(pdMS_TO_TICKS(100));
+	}
+}
+
+	
+
+#if 0
 
 
 int idx = 0;
@@ -897,87 +1040,10 @@ while(1) {
 }
 
 
-err_label:
 
-	printf("Error: %s\n", esp_err_to_name(ret));
 
-	while (1) {
-       		gpio_set_level(GPIO_BLINK, 0);
-		vTaskDelay(pdMS_TO_TICKS(100));
-		gpio_set_level(GPIO_BLINK, 1);
-		vTaskDelay(pdMS_TO_TICKS(100));
-	}
-}
+#endif
 
 
 
 
-typedef struct menu_item {
-	const char	*mi_text;
-	void		(*mi_start_func)(void);
-} menu_item_t;
-
-#define MENU_ITEMCNT	8
-
-menu_item_t	mitem[MENU_ITEMCNT] = {
-	{ "Rotary Test", NULL },
-	{ "Bouncy Balls", NULL },
-	{ "Clock", NULL },
-	{ "Etch-a-Sketch", NULL },
-	{ "Space Dodge", NULL },
-	{ "Lander", NULL },
-	{ "Test1", NULL },
-	{ "Test2", NULL }
-};
-
-uint8_t	mselidx;
-uint8_t	mdispidx;
-
-
-#define MENU_LINEMAXLEN	16
-#define MENU_LINECNT	6
-
-
-void
-menu_loop(void)
-{
-	int	i;
-	char	displin[MENU_LINEMAXLEN];
-	int	dir;
-
-	dir = 1;
-	while(1) {
-
-		/* Draw menu */
-		for(i = 0; i < MENU_LINECNT; ++i) {
-			if(i >= MENU_ITEMCNT || i + mdispidx >= MENU_ITEMCNT)
-				break;
-
-			snprintf(displin, MENU_LINEMAXLEN, "%c%s",
-			    mdispidx + i == mselidx ? '*' : ' ',
-			    mitem[mdispidx + i].mi_text);
-
-			puttext(displin, &font_c64, 0, i * 8);
-
-		}
-
-		sendswapcurframe();
-		vTaskDelay(pdMS_TO_TICKS(1000));
-
-		if(dir < 0 && mselidx == 0)
-			dir = 1;
-		else
-		if(dir > 0 && mselidx == MENU_ITEMCNT - 1)
-			dir = -1;
-		else
-			mselidx += dir;
-
-		if(mselidx < mdispidx) 
-			mdispidx -= MENU_LINECNT;
-		else
-		if(mselidx >= mdispidx + MENU_LINECNT) 
-			mdispidx += MENU_LINECNT;
-		
-	}
-	
-}
