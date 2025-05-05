@@ -1,8 +1,6 @@
-#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
-#include <esp_rotary.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
@@ -12,82 +10,12 @@
 #include "font_c64.h"
 #include "font_picopixel.h"
 #include "microarcade.h"
+#include "disp.h"
+#include "esp_rotary.h"
 
 
-int
-config_led_gpio(int pinnr)
-{
-	gpio_config_t	config;
-	int		ret;
-
-	memset(&config, 0, sizeof(gpio_config_t));
-
-	config.mode = GPIO_MODE_OUTPUT;
-	config.intr_type = GPIO_INTR_DISABLE;
-	config.pin_bit_mask = 1ULL << pinnr;
-	ret = gpio_config(&config);
-	if(ret != ESP_OK) {
-		printf("Could not config gpio\n");
-		return ret;
-		
-	}
-
-
-
-	return 0;
-}
-
-
-static const char *logtag = "rotary test";
 
 #define GPIO_BLINK	2
-
-#define SSD1309_default_memoryAddressingMode 0x00	 /** 0x00 = horizontal, 0x01 = vertical, 0x02 = page */
-#define SSD1309_default_contrastControl 0xFF		 /** 0x00 - 0xFF */
-#define SSD1309_default_multiplexRatio 0x3F			 /** 0x0F - 0x3F */
-#define SSD1309_default_displayOffset 0x00			 /** 0x00 - 0x3F */
-#define SSD1309_default_displayClockDivideRatio 0x80 /** 0x00 - 0xFF */
-#define SSD1309_default_preChargePeriod 0x22		 /** 0x00 - 0xFF */
-#define SSD1309_default_COMpinsHWconfig 0x12		 /** 0x02 - 0x12 */
-#define SSD1309_default_VCOMHdeselectLevel 0x40		 /** 0x00 - 0x7F */
-
-#define SSD1309_setContrastControl 0x81			/** set contrast control */
-#define SSD1309_followRAMcontent 0xA4			/** resume to RAM content display */
-#define SSD1309_allPixelsOn 0xA5				/** all pixels on */
-#define SSD1309_inversionOff 0xA6				/** normal display */
-#define SSD1309_inversionOn 0xA7				/** inverted display */
-#define SSD1309_pwrOff 0xAE						/** power off */
-#define SSD1309_pwrOn 0xAF						/** power on */
-#define SSD1309_nop 0xE3						/** nop */
-#define SSD1309_setCommandLock 0xFD				/** set command lock */
-#define SSD1309_contHScrollSetupRight 0x26		/** continuous horizontal scroll setup right */
-#define SSD1309_contHScrollSetupLeft 0x27		/** continuous horizontal scroll setup left */
-#define SSD1309_contVHScrollSetupRight 0x29		/** continuous vertical and horizontal scroll setup right */
-#define SSD1309_contVHScrollSetupLeft 0x2A		/** continuous vertical and horizontal scroll setup left */
-#define SSD1309_deactivateScroll 0x2E			/** deactivate scroll */
-#define SSD1309_activateScroll 0x2F				/** activate scroll */
-#define SSD1309_setVScrollArea 0xA3				/** set vertical scroll area */
-#define SSD1309_contentScrollSetupRight 0x2C	/** content scroll setup right */
-#define SSD1309_contentScrollSetupLeft 0x2D		/** content scroll setup left */
-#define SSD1309_setLowCSAinPAM 0x00				/** set lower column start address in page addressing mode */
-#define SSD1309_setHighCSAinPAM 0x10			/** set higher column start address in page addressing mode */
-#define SSD1309_setMemoryAddressingMode 0x20	/** set memory addressing mode */
-#define SSD1309_setColumnAddress 0x21			/** set column address */
-#define SSD1309_setPageAddress 0x22				/** set page address */
-#define SSD1309_setPSAinPAM 0xB0				/** set page start address in page addressing mode */
-#define SSD1309_setDisplayStartLine 0x40		/** set display start line */
-#define SSD1309_setSegmentMapReset 0xA0			/** set segment map reset */
-#define SSD1309_setSegmentMapFlipped 0xA1		/** set segment map flipped */
-#define SSD1309_setMultiplexRatio 0xA8			/** set multiplex ratio */
-#define SSD1309_setCOMoutputNormal 0xC0			/** set COM output normal */
-#define SSD1309_setCOMoutputFlipped 0xC8		/** set COM output flipped */
-#define SSD1309_setDisplayOffset 0xD3			/** set display offset */
-#define SSD1309_setCOMpinsHWconfig 0xDA			/** set COM pins hardware configuration */
-#define SSD1309_setGPIO 0xDC					/** set GPIO */
-#define SSD1309_setDisplayClockDivideRatio 0xD5 /** set display clock divide ratio */
-#define SSD1309_setPreChargePeriod 0xD9			/** set pre-charge period */
-#define SSD1309_setVCOMHdeselectLevel 0xDB		/** set VCOMH deselect level */
-
 
 
 uint8_t	domy_buf[24][128] = {
@@ -524,208 +452,6 @@ uint8_t	domy_buf[24][128] = {
 	  0x7f, 0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x00 }
 };
 
-spi_device_handle_t		devhand;
-
-
-
-#define FRAMESIZ	1024
-
-uint8_t		frame1[FRAMESIZ];
-uint8_t		frame2[FRAMESIZ];
-
-uint8_t		*curframe = frame1;
-
-SemaphoreHandle_t	sendframe_mutex;
-uint8_t			*sendframe = NULL;
-
-TaskHandle_t	frame_sender_task;
-
-
-static void
-frame_sender_loop(void *arg)
-{
-	int			ret;
-	spi_transaction_t	transact;
-	int			had_frame_to_send;
-
-	while(ulTaskNotifyTake(pdTRUE, portMAX_DELAY)) {
-		had_frame_to_send = 0;
-		xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
-		if(sendframe == NULL) {
-			goto next_iter;
-		}
-
-		/* Only we can set sendframe back to NULL, and the writer
-		 * will not notify as long as it it not NULL, so
-		 * it's safe to release the mutex here */
-		xSemaphoreGive(sendframe_mutex);
-
-		memset(&transact, 0, sizeof(spi_transaction_t));
-		transact.length = 1024 * 8;
-		transact.tx_buffer = sendframe;
-		ret = spi_device_transmit(devhand, &transact);
-		if(ret != ESP_OK) {
-			printf("Could not send data\n");
-		}
-
-		++had_frame_to_send;	
-		xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
-		sendframe = NULL;
-
-next_iter:
-		xSemaphoreGive(sendframe_mutex);
-
-		if(!had_frame_to_send)
-			printf("Was woken up but nothing to send!\n");
-		
-	}
-	
-}
-
-
-void
-clearcurframe(void)
-{
-	memset(curframe, 0, FRAMESIZ);
-}
-
-
-#define DISP_MODE_ADHOC	0
-#define DISP_MODE_FPS	1
-
-#define DISP_ADHOC_SENDTRY_WAITMS 10
-
-int disp_mode = DISP_MODE_ADHOC;
-int dropped_framecnt = 0;
-
-void
-sendswapcurframe(void)
-{
-	xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
-
-	if(sendframe != NULL) {
-		if(disp_mode == DISP_MODE_FPS) {
-
-			/* We are in fast mode. Frame has to be dropped */
-
-			printf("Dropping frame!\n");
-			++dropped_framecnt;
-			goto end_label;
-
-		} else { /* DISP_MODE_ADHOC */
-
-			/* We are in ad-hoc / slow update mode. Wait until
-			 * sendframe is clear and send our frame */
-
-			while(sendframe != NULL) {
-				xSemaphoreGive(sendframe_mutex);
-				vTaskDelay(pdMS_TO_TICKS(
-				    DISP_ADHOC_SENDTRY_WAITMS));
-				xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
-			}
-		}
-	}
-
-	sendframe = curframe;
-	if(curframe == frame1)
-		curframe = frame2;
-	else
-		curframe = frame1;
-
-	xTaskNotifyGive(frame_sender_task);
-
-end_label:
-	xSemaphoreGive(sendframe_mutex);
-	clearcurframe();
-}
-
-void
-blt(uint8_t *buf, uint32_t buflen, int8_t spritewidth, int xpos, int ypos)
-{
-	int	x;
-	int	y;
-	int	ybase;	
-	int	ymod;	
-	uint8_t	*framecur;
-	uint8_t	*spritecur;
-	int	i;
-	uint8_t	byte;
-
-	/* Screen buffer is vertically mapped so for y positions that aren't
-	 * divisible by 8, we have to do some bit shifting */
-		
-	ybase = ypos / 8;
-	ymod = ypos % 8;
-
-	spritecur = buf;
-	framecur = curframe + 128 * ybase + xpos;
-	for(i = 0, x = xpos, y = ybase; i < buflen + spritewidth; ++i) {
-
-		if(x < 128 && y < 8) {
-
-			if(i < buflen)
-				byte = *spritecur << ymod;
-			else	/* Overflow row */
-				byte = 0;
-
-			if(i >= spritewidth)
-				byte |= *(spritecur - spritewidth) >> (8 - ymod);
-
-			*framecur |= byte;
-		}
-
-		++x;
-		if(i > 0 && ((i+1) % spritewidth) == 0) {
-			x = xpos;
-			++y;
-			framecur = curframe + 128 * y + xpos;
-		} else
-			++framecur;
-
-		++spritecur;
-	}
-
-
-}
-
-
-void
-puttext(const char *text, const font_t *fo, int x, int y)
-{
-	const char 	*ch;
-	int		xpos;
-	int		ypos;
-	uint8_t		*bitmap;
-	font_char_t	*fch;
-
-	xpos = x;
-	ypos = y;
-
-	for(ch = text; *ch; ++ch) {
-		if(*ch == '\n') {
-			xpos = x;
-			ypos += fo->fo_line_height;
-			
-			continue;
-		}
-
-		if(*ch < fo->fo_ascii_min || *ch > fo->fo_ascii_max) {
-			/* Unsupported char */
-			fch = &fo->fo_chars['?' - fo->fo_ascii_min];
-		} else {
-			fch = &fo->fo_chars[*ch - fo->fo_ascii_min];
-		}
-
-		bitmap = fo->fo_bitmap + fch->fc_bitmap_offs;
-
-		blt(bitmap, fch->fc_bitmap_siz, fch->fc_width,
-		    xpos, ypos);
-
-		xpos += fch->fc_width;
-
-	}
-}
-
 
 uint8_t	ball_buf[8] = {
 	/* "ball" (8x8): vertical mapping, 64 pixels, 8 bytes */
@@ -778,83 +504,44 @@ void
 app_main(void)
 {
 	esp_err_t			ret;
-	spi_bus_config_t		spiconf;
-	spi_device_interface_config_t	devconf;
-	spi_transaction_t		transact;
+	gpio_config_t			gpioconf;
 	rotary_config_t			rconf[ROTARY_CNT];
 	uint8_t				mselidx;
 	uint8_t				mdispidx;
 	rotary_event_t			rev;
+	disp_conf_t			dconf;
+	int				i;
+	char				displin[MENU_LINEMAXLEN];
+
 
 
 	ret = ESP_OK;
 
-	ESP_GOTO_ON_ERROR(config_led_gpio(GPIO_BLINK), err_label,
-	    logtag, "Could not configure LED on pin %d", GPIO_BLINK);
+	/* Set up onboard LED -- will blink on error */
+	memset(&gpioconf, 0, sizeof(gpio_config_t));
 
-	memset(&spiconf, 0, sizeof(spi_bus_config_t));
-	spiconf.sclk_io_num = 4;
-	spiconf.mosi_io_num = 5;
-
-	spiconf.quadwp_io_num = -1;
-	spiconf.quadhd_io_num = -1;
-
-	ret = spi_bus_initialize(SPI2_HOST, &spiconf, SPI_DMA_CH_AUTO);
+	gpioconf.mode = GPIO_MODE_OUTPUT;
+	gpioconf.intr_type = GPIO_INTR_DISABLE;
+	gpioconf.pin_bit_mask = 1ULL << GPIO_BLINK;
+	ret = gpio_config(&gpioconf);
 	if(ret != ESP_OK) {
-		printf("Could not initialize SPI bus\n");
+		printf("Could not config gpio\n");
 		goto err_label;
+		
 	}
 
-	memset(&devconf, 0, sizeof(spi_device_interface_config_t));
-	devconf.clock_speed_hz = 10000000;
-	devconf.spics_io_num = 15;
-	devconf.queue_size = 16;
-	
-	ret = spi_bus_add_device(SPI2_HOST, &devconf, &devhand);
-	if(ret != ESP_OK) {
-		printf("Could not add device\n");
+	/* Set up display */
+	memset(&dconf, 0, sizeof(dconf));
+	dconf.dc_pin_clk = 4;
+	dconf.dc_pin_mosi = 5;
+	dconf.dc_pin_reset = 6;
+	dconf.dc_pin_dc = 7;
+	dconf.dc_pin_cs = 15;
+	dconf.dc_spi_hz = 10 * 1000 * 1000;
+
+	ret = disp_init(&dconf);
+	if(ret != ESP_OK)
 		goto err_label;
-	}
-
-	config_led_gpio(7);	/* DC */
-	config_led_gpio(6);	/* RESET */
-
-
-	gpio_set_level(6, 0); /* Reset */
-	vTaskDelay(pdMS_TO_TICKS(100));
-	gpio_set_level(6, 1); 
-
-
-	uint8_t cmds[] = {
-		0x20, 0x00,	/* Horizontal addressing mode */
-		//0xa5,		/* All pixels on */
-		//0xa7,		/* Inverse */
-		0xaf		/* Display on */
-	};
-
-	gpio_set_level(7, 0); /* Command */
-
-	memset(&transact, 0, sizeof(spi_transaction_t));
-	transact.length = sizeof(cmds) * 8;
-	transact.tx_buffer = cmds;
-
-	ret = spi_device_transmit(devhand, &transact);
-	if(ret != ESP_OK) {
-		printf("Could not send data\n");
-		goto err_label;
-	}
-
-	gpio_set_level(7, 1); /* Data */
-
-
-	ret = xTaskCreate(frame_sender_loop, "frame_sender_loop",
-	    4096, NULL, 20, &frame_sender_task);
-	if(ret != pdPASS)
-		goto err_label;
-
-	sendframe_mutex = xSemaphoreCreateMutex();
-
-	sendswapcurframe();
 
 	memset(rconf, 0, sizeof(rotary_config_t) * ROTARY_CNT);
 	rconf[ROTARY_LEFT].rc_pin_a = 45;
@@ -879,14 +566,13 @@ app_main(void)
 		goto err_label;
 	}
 
-	int	i;
-	char	displin[MENU_LINEMAXLEN];
+	
+	/* Enter main menu loop */
 	mselidx = 0;
-
 	while(1) {
-printf("Redrawing menu\n");
+
+		/* Redraw menu */
 		mdispidx = (mselidx / MENU_LINECNT) * MENU_LINECNT;
-		/* Draw menu */
 		for(i = 0; i < MENU_LINECNT; ++i) {
 			if(i >= MENU_ITEMCNT || i + mdispidx >= MENU_ITEMCNT)
 				break;
@@ -895,7 +581,7 @@ printf("Redrawing menu\n");
 			    mdispidx + i == mselidx ? '*' : ' ',
 			    mitem[mdispidx + i].mi_text);
 
-			puttext(displin, &font_c64, 0, i * 8);
+			puttext(curframe, displin, &font_c64, 0, i * 8);
 		}
 
 		sendswapcurframe();
@@ -940,7 +626,6 @@ err_label:
 }
 
 	
-
 #if 0
 
 

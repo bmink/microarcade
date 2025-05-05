@@ -1,0 +1,5 @@
+* Splash screen / restart_reason()
+* What should disp library be called?
+* in fps mode, keep track of dropped frames and compute running avg of budget
+* figure out why onboard LED sometimes on. also blink on error. Need to rewire a rotary?
+
