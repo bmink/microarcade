@@ -27,7 +27,8 @@ int disp_init(disp_conf_t *);
 int disp_set_mode(int);
 
 void puttext(uint8_t *, const char *, const font_t *, uint16_t, uint16_t);
-void sendswapcurframe();
+void sendswapcurframe(void);
+void clearcurframe(void);
 
 
 

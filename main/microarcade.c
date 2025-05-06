@@ -477,10 +477,13 @@ typedef struct menu_item {
 	void		(*mi_start_func)(void);
 } menu_item_t;
 
+void mod_rotarytest_start(void);
+
+
 #define MENU_ITEMCNT	12
 
 menu_item_t	mitem[MENU_ITEMCNT] = {
-	{ "Rotary Test", NULL },
+	{ "Rotary Test", mod_rotarytest_start },
 	{ "Bouncy Balls", NULL },
 	{ "Pong", NULL },
 	{ "Clock", NULL },
@@ -512,8 +515,6 @@ app_main(void)
 	disp_conf_t			dconf;
 	int				i;
 	char				displin[MENU_LINEMAXLEN];
-
-
 
 	ret = ESP_OK;
 
@@ -602,7 +603,12 @@ app_main(void)
 
 			break;
 
-		case ROT_EVENT_BUTTON_PRESS:
+		case ROT_EVENT_BUTTON_RELEASE:
+
+			if(mitem[mselidx].mi_start_func)
+				mitem[mselidx].mi_start_func();
+
+			/* Not reached */
 
 			break;
 

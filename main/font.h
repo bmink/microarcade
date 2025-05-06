@@ -1,6 +1,9 @@
 #ifndef FONT_H
 #define FONT_H
 
+#include <stdlib.h>
+
+
 typedef struct font_char {
 	uint8_t		fc_width;
 	uint32_t	fc_bitmap_offs;
