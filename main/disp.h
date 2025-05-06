@@ -5,6 +5,9 @@
 
 
 #define FRAMESIZ        1024
+#define FRAME_WIDTH	128
+#define FRAME_HEIGHT	64
+
 extern uint8_t *curframe;
 
 typedef struct disp_conf {
@@ -29,7 +32,7 @@ int disp_set_mode(int);
 void puttext(uint8_t *, const char *, const font_t *, uint16_t, uint16_t);
 void sendswapcurframe(void);
 void clearcurframe(void);
-
+void blt(uint8_t *, uint8_t *, uint32_t, int8_t, int, int);
 
 
 #endif

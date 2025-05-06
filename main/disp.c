@@ -195,7 +195,8 @@ blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth, int xpos,
 		}
 
 		++x;
-		if(i > 0 && ((i+1) % spritewidth) == 0) {
+//		if(i > 0 && ((i+1) % spritewidth) == 0) {
+		if(((i+1) % spritewidth) == 0) {
 			x = xpos;
 			++y;
 			framecur = frame + 128 * y + xpos;
