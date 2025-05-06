@@ -7,7 +7,7 @@
 #include "font_c64.h"
 
 
-const char *ltag = "rotarytest";
+static const char *ltag = "rotarytest";
 
 #define MAXVALSTRLEN	5
 
@@ -71,7 +71,7 @@ mod_rotarytest_start(void)
 
 	ret = rotary_reconfig(rconf, ROTARY_CNT);	
 	if(ret != ESP_OK) {
-		ESP_LOGE(ltag, "mod_rotarytest_start() called");
+		ESP_LOGE(ltag, "Could not reconfigure rotarys");
 		goto end_label;
 	}
 

@@ -477,15 +477,19 @@ typedef struct menu_item {
 	void		(*mi_start_func)(void);
 } menu_item_t;
 
+
 void mod_rotarytest_start(void);
+void mod_pong_single_start(void);
+void mod_pong_multi_start(void);
 
-
-#define MENU_ITEMCNT	12
+#define MENU_ITEMCNT	14
 
 menu_item_t	mitem[MENU_ITEMCNT] = {
 	{ "Rotary Test", mod_rotarytest_start },
 	{ "Bouncy Balls", NULL },
 	{ "Pong", NULL },
+	{ " single player", mod_pong_single_start },
+	{ " two players", mod_pong_multi_start },
 	{ "Clock", NULL },
 	{ "Etch-a-Sketch", NULL },
 	{ "Space Dodge", NULL },
@@ -500,7 +504,6 @@ menu_item_t	mitem[MENU_ITEMCNT] = {
 
 #define MENU_LINEMAXLEN	16
 #define MENU_LINECNT	8
-
 
 
 void
