@@ -377,22 +377,132 @@ end_label:
 
 }
 
+#define MENU_LINEMAXLEN		128
+
 	
+void
+drawmenu(uint8_t *frame, const char **mtext, int mitem_cnt, int mselidx,
+	int maxlinecnt, int maxlinelen, const font_t *font, uint16_t xpos,
+	uint16_t ypos)
+{
+	int	i;
+	int	mdispidx;
+	char	displin[MENU_LINEMAXLEN];
+	int	lmaxlen;
 
-#if 0
+	mdispidx = ((int)(mselidx / maxlinecnt)) * maxlinecnt;
+	for(i = 0; i < maxlinecnt; ++i) {
+		if(i + mdispidx >= mitem_cnt)
+			break;
+
+		lmaxlen = maxlinelen;
+		if(lmaxlen > MENU_LINEMAXLEN)
+			lmaxlen = MENU_LINEMAXLEN;
+
+		snprintf(displin, lmaxlen, "%c%s",
+		    mdispidx + i == mselidx ? '*' : ' ', mtext[mdispidx + i]);
+
+		puttext(frame, displin, font, xpos,
+		    ypos + i * font->fo_line_height);
+	}
+
+}
 
 
+void
+scrollframe_left(uint8_t *frame, int xoffs, uint8_t *newframe)
+{
+	/* Scrolls frame offs pixels to the left. If newframe is not NULL
+	 * then the space on the right will be filled in from whatever is in
+	 * newframe */
+
+	int x;
+	int line;
+	uint8_t *framecur;
+	uint8_t *newframecur;
+	int myoffs;
+
+	myoffs = xoffs;
+	if(myoffs > FRAME_WIDTH)
+		myoffs = FRAME_WIDTH;
+
+	for(line = 0; line < 8; ++line) {
+		framecur = frame + line * 128;
+		if(newframe)
+			newframecur = newframe + line * 128;
+		else
+			newframecur = NULL;
+
+		for(x = 0; x < FRAME_WIDTH - myoffs; ++x) {
+			*framecur = *(framecur + myoffs);
+			++framecur;
+			
+		}
+		for(x = FRAME_WIDTH - myoffs; x < FRAME_WIDTH; ++x) {
+			if(*newframecur)
+				*framecur = *newframecur;
+			else
+				*framecur = 0;
+			
+			++framecur;
+			if(newframecur)	
+				++newframecur;
+		}
+	}
+}
 
 
-#endif
+void
+drawbox(uint8_t *frame, int x1, int y1, int x2, int y2, disp_overlay_t overlay)
+{
+	int	x;
+	int	y;
+	int	boxwidth;
+	uint8_t	column[8];
+	int	ybase;
+	int	ymod;
+	int	line;
+	uint8_t	*framecur;
+	uint8_t	byte;
 
+	if(x2 < x1 || y2 < y1)
+		return;
+	
+	/* Create a 1xFRAME_HEIGHT pixel column representing the box */
+	memset(column, 0, 8);
+	for(y = y1; y < y2; ++y) {
+		ybase = y / 8;
+		ymod = y % 8;
+		column[ybase] |= 0x1 << ymod;
+	}
 
+	boxwidth = x2 - x1;
 
+	for(line = 0; line < 8; ++line) {
+		byte = column[line];
+		if(byte == 0)
+			continue;
 
+		framecur = frame + 128 * line + x1;
+		for(x = 0; x < boxwidth; ++x) {
+			switch(overlay) {
+			case DISP_DRAW_ON:
+				*framecur |= byte;
 
+				break;
 
+			case DISP_DRAW_OFF:
+				*framecur &= ~byte;
 
+				break;
 
+			case DISP_DRAW_INVERT:
+				*framecur ^= byte;
 
-
+				break;
+			}
+			++framecur;
+		}
+	}
+}
 

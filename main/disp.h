@@ -31,11 +31,23 @@ typedef enum disp_mode {
 
 void disp_set_mode(disp_mode_t, int);
 
+typedef enum disp_overlay {
+	DISP_DRAW_ON,
+	DISP_DRAW_OFF,
+	DISP_DRAW_INVERT
+} disp_overlay_t;
+
 void puttext(uint8_t *, const char *, const font_t *, uint16_t, uint16_t);
 void sendswapcurframe(void);
 void sleep_sendswapcurframe(void);
 void clearcurframe(void);
 void blt(uint8_t *, uint8_t *, uint32_t, int8_t, int, int);
 
+void drawmenu(uint8_t *, const char **, int, int, int, int, const font_t *,
+	uint16_t, uint16_t);
+
+void scrollframe_left(uint8_t *, int, uint8_t *);
+
+void drawbox(uint8_t *, int x1, int y1, int x2, int y2, disp_overlay_t);
 
 #endif
