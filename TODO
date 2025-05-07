@@ -1,3 +1,5 @@
+* Move global variables in modules into a state struct that is allocated
+in the start function to reduce static memory usage
 * Splash screen / restart_reason()
 * What should disp library be called?
 * in fps mode, keep track of dropped frames and compute running avg of budget

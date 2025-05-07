@@ -24,10 +24,11 @@ static TaskHandle_t	frame_sender_task;
 
 #define DISP_ADHOC_SENDTRY_WAITMS 10
 
-int disp_mode = DISP_MODE_ADHOC;
+static disp_mode_t disp_mode = DISP_MODE_ADHOC;
 
 static int disp_fps;
 static int disp_ticks_per_frame;
+static TickType_t disp_last_frame_at;
 
 int dropped_framecnt = 0;
 
@@ -38,6 +39,36 @@ uint32_t framebudget_val[FRAMEBUDGET_RAVG_CNT];
 uint32_t framebudget_cur_idx;
 uint32_t framebudget_cnt;
 uint32_t framebudget_sum;
+
+
+
+#define MAX_FPS		100
+
+void
+disp_set_mode(disp_mode_t newmode, int fps)
+{
+
+	switch(newmode) {
+	case DISP_MODE_ADHOC:
+		disp_fps = 0;
+		disp_ticks_per_frame = 0;
+
+		break;
+
+	case DISP_MODE_FPS:
+		disp_fps = fps;
+
+		if(disp_fps >= MAX_FPS)
+			disp_fps = MAX_FPS;
+
+		disp_ticks_per_frame = pdMS_TO_TICKS(1000 / disp_fps);
+		disp_last_frame_at = xTaskGetTickCount();
+
+		break;
+	}
+	
+	disp_mode = newmode;
+}
 
 
 void
@@ -126,9 +157,9 @@ sendswapcurframe(void)
 	if(sendframe != NULL) {
 		if(disp_mode == DISP_MODE_FPS) {
 
-			/* We are in fast mode. Frame has to be dropped */
+			/* We are in fps mode. Frame has to be dropped */
 
-			printf("Dropping frame!\n");
+			ESP_LOGE(ltag, "Dropping frame!\n");
 			++dropped_framecnt;
 			goto end_label;
 
@@ -158,6 +189,17 @@ end_label:
 	xSemaphoreGive(sendframe_mutex);
 	clearcurframe();
 }
+
+
+void
+sleep_sendswapcurframe(void)
+{
+
+	vTaskDelayUntil(&disp_last_frame_at, disp_ticks_per_frame);
+
+	sendswapcurframe();
+}
+
 
 void
 blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth, int xpos, int ypos)
@@ -298,7 +340,7 @@ disp_init(disp_conf_t *conf)
 	
 	ret = spi_bus_add_device(SPI2_HOST, &devconf, &devhand);
 	if(ret != ESP_OK) {
-		printf("Could not add device\n");
+		ESP_LOGE(ltag, "Could not add device\n");
 		goto end_label;
 	}
 

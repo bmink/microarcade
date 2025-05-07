@@ -24,13 +24,16 @@ typedef struct disp_conf {
 
 int disp_init(disp_conf_t *);
 
-#define DISP_MODE_ADHOC 0
-#define DISP_MODE_FPS   1
+typedef enum disp_mode {
+	DISP_MODE_ADHOC,
+	DISP_MODE_FPS
+} disp_mode_t;
 
-int disp_set_mode(int);
+void disp_set_mode(disp_mode_t, int);
 
 void puttext(uint8_t *, const char *, const font_t *, uint16_t, uint16_t);
 void sendswapcurframe(void);
+void sleep_sendswapcurframe(void);
 void clearcurframe(void);
 void blt(uint8_t *, uint8_t *, uint32_t, int8_t, int, int);
 

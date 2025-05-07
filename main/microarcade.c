@@ -645,7 +645,7 @@ int ypos = 0;
 int xspeed = 1;
 int yspeed = 1;
 
-srand((unsigned int)xTaskGetTickCount);
+srand((unsigned int)xTaskGetTickCount());
 
 ballcnt = 10;
 for(int i = 0; i < ballcnt; ++i) {

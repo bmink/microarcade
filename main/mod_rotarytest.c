@@ -77,8 +77,6 @@ mod_rotarytest_start(void)
 
 	maxpressed = 0;
 	while(1) {
-		clearcurframe();
-
 		val = rotary_get_value(ROTARY_LEFT);
 		snprintf(valstr, MAXVALSTRLEN, "%"PRIu32, val);
 		puttext(curframe, valstr, &font_c64, 0, 22);
