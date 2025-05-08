@@ -381,37 +381,6 @@ end_label:
 
 }
 
-#define MENU_LINEMAXLEN		128
-
-	
-void
-drawmenu(uint8_t *frame, const char **mtext, int mitem_cnt, int mselidx,
-	int maxlinecnt, int maxlinelen, const font_t *font, uint16_t xpos,
-	uint16_t ypos)
-{
-	int	i;
-	int	mdispidx;
-	char	displin[MENU_LINEMAXLEN];
-	int	lmaxlen;
-
-	mdispidx = ((int)(mselidx / maxlinecnt)) * maxlinecnt;
-	for(i = 0; i < maxlinecnt; ++i) {
-		if(i + mdispidx >= mitem_cnt)
-			break;
-
-		lmaxlen = maxlinelen;
-		if(lmaxlen > MENU_LINEMAXLEN)
-			lmaxlen = MENU_LINEMAXLEN;
-
-		snprintf(displin, lmaxlen, "%c%s",
-		    mdispidx + i == mselidx ? '*' : ' ', mtext[mdispidx + i]);
-
-		puttext(frame, displin, font, xpos,
-		    ypos + i * font->fo_line_height);
-	}
-
-}
-
 
 void
 scrollframe(uint8_t *frame, int xoffs, uint8_t *newframe, int left)

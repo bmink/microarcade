@@ -6,12 +6,13 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "esp_check.h"
+#include "esp_rotary.h"
 #include "font.h"
 #include "font_c64.h"
 #include "font_picopixel.h"
 #include "microarcade.h"
 #include "disp.h"
-#include "esp_rotary.h"
+#include "ui_menu.h"
 
 static const char *ltag = "microarcade";
 
@@ -37,38 +38,28 @@ int ballcnt = 10;
 void mod_rotarytest_start(void);
 void mod_pong_start(void);
 
-#define MAIN_MENU_ITEMCNT	12
 
-const char *	main_menu_text[MAIN_MENU_ITEMCNT] = {
-	"Rotary Test",
-	"Bouncy Balls",
-	"Pong",
-	"Clock",
-	"Etch-a-Sketch",
-	"Space Dodge",
-	"Lander",
-	"Bucket Catch",
-	"Test2",
-	"Test3",
-	"Set Clock",
-	"Test5" };
+#define MAIN_MENU_ITEMCNT	2
 
-typedef void (*mod_start_func_t)(void);
 
-mod_start_func_t main_menu_startfunc[MAIN_MENU_ITEMCNT] = {
-	mod_rotarytest_start,
-	NULL,
-	mod_pong_start,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL
+ui_menu_item_t	main_menu[] = {
+
+	{ "Rotary Test", MIT_CALLFUNC, mod_rotarytest_start, 0, NULL },
+	{ "Gfx Perf Test", MIT_NONE, NULL, 0, NULL },
+	{ "Pong", MIT_CALLFUNC, mod_pong_start, 0, NULL },
+	{ "Etch-a-sketch", MIT_NONE, NULL, 0, NULL },
+	{ "Clock", MIT_NONE, NULL, 0, NULL },
+	{ "Space Dodge", MIT_NONE, NULL, 0, NULL },
+	{ "Lander", MIT_NONE, NULL, 0, NULL },
+	{ "Minesweeper", MIT_NONE, NULL, 0, NULL },
+	{ "Test1", MIT_NONE, NULL, 0, NULL },
+	{ "Test2", MIT_NONE, NULL, 0, NULL },
+	{ "Test3", MIT_NONE, NULL, 0, NULL },
+	{ "Test4", MIT_NONE, NULL, 0, NULL },
+	{ "Test5", MIT_NONE, NULL, 0, NULL },
+	{  NULL, MIT_NONE, NULL, 0, NULL }
 };
+
 
 #define MAIN_MENU_LINEMAXLEN	16
 #define MAIN_MENU_LINECNT	8
@@ -81,11 +72,8 @@ app_main(void)
 {
 	esp_err_t			ret;
 	gpio_config_t			gpioconf;
-	uint8_t				mselidx;
 	rotary_config_t			rconf[ROTARY_CNT];
-	rotary_event_t			rev;
 	disp_conf_t			dconf;
-	uint8_t				savedframe[FRAMESIZ];
 
 	ret = ESP_OK;
 
@@ -117,94 +105,26 @@ app_main(void)
 
 	memset(rconf, 0, sizeof(rotary_config_t) * ROTARY_CNT);
 	rconf[ROTARY_LEFT].rc_pin_a = 45;
-	rconf[ROTARY_LEFT].rc_pin_b = 0;
+	rconf[ROTARY_LEFT].rc_pin_b = 36;
 	rconf[ROTARY_LEFT].rc_pin_button = 35;
-	rconf[ROTARY_LEFT].rc_style = ROT_STYLE_BOUND;
-	rconf[ROTARY_LEFT].rc_min = 0;
-	rconf[ROTARY_LEFT].rc_max = MAIN_MENU_ITEMCNT;
-	rconf[ROTARY_LEFT].rc_start = 0;
 
 	rconf[ROTARY_RIGHT].rc_pin_a = 21;
 	rconf[ROTARY_RIGHT].rc_pin_b = 47;
 	rconf[ROTARY_RIGHT].rc_pin_button = 48;
-	rconf[ROTARY_RIGHT].rc_style = ROT_STYLE_BOUND;
-	rconf[ROTARY_RIGHT].rc_min = 0;
-	rconf[ROTARY_RIGHT].rc_max = MAIN_MENU_ITEMCNT;
-	rconf[ROTARY_RIGHT].rc_start = 0;
-
 
 	if(rotary_config(rconf, ROTARY_CNT) != ESP_OK) {
 		ESP_LOGE(ltag, "Could not configure rotary encoders\n");
 		goto err_label;
 	}
 
-	mselidx = 0;
-
 	/* Do splash screen only when first powered on */
-	//if(esp_reset_reason() == ESP_RST_POWERON) {
-	if(1) {
-
-		/* Draw our initial state into curframe and save it away so
-		 * we can transition into it at the end of the splash.
-		 * Note we don't actually send the frame so it's not
-		 * displayed before the splash begins. */
-		drawmenu(curframe, main_menu_text, MAIN_MENU_ITEMCNT, mselidx,
-		    MAIN_MENU_LINECNT, MAIN_MENU_LINEMAXLEN, &font_c64,
-		    0, 0);
-
-		memcpy(savedframe, curframe, FRAMESIZ);
+	//if(esp_reset_reason() == ESP_RST_POWERON)
 		splash();
-		transframe(savedframe, 1);		
-	}
 
-	disp_set_mode(DISP_MODE_ADHOC, 0);
-	
-	/* Enter main menu loop */
-	while(1) {
+	ui_showmenu(main_menu);
 
-		/* Redraw menu */
-		drawmenu(curframe, main_menu_text, MAIN_MENU_ITEMCNT, mselidx,
-		    MAIN_MENU_LINECNT, MAIN_MENU_LINEMAXLEN, &font_c64,
-		    0, 0);
-		    
-		sendswapcurframe();
-
-		/* Wait for rotary event */
-		if(xQueueReceive(rotary_event_queue, &rev, portMAX_DELAY)
-		    != pdPASS)
-			continue;
-
-		if(rev.re_idx != ROTARY_LEFT)
-			continue;
-
-		switch(rev.re_type) {
-		case ROT_EVENT_INCREMENT:
-		case ROT_EVENT_DECREMENT:
-			if(rev.re_value >=0 && rev.re_value < MAIN_MENU_ITEMCNT)
-				mselidx = rev.re_value;
-
-			break;
-
-		case ROT_EVENT_BUTTON_RELEASE:
-
-printf("here\n");
-			if(main_menu_startfunc[mselidx]) {
-				memcpy(savedframe, lastframe, FRAMESIZ);
-				main_menu_startfunc[mselidx]();
-				transframe(savedframe, 0);		
-				disp_set_mode(DISP_MODE_ADHOC, 0);
-				rconf[ROTARY_LEFT].rc_start = mselidx;
-				rotary_reconfig(rconf, ROTARY_CNT);
-			}
-
-			break;
-
-		default:
-			break;
-
-		}
-
-	}
+	/* Not reached */
+	ESP_LOGE(ltag, "Should not be here, main menu returned");
 
 err_label:
 
