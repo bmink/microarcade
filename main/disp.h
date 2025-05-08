@@ -9,6 +9,7 @@
 #define FRAME_HEIGHT	64
 
 extern uint8_t *curframe;
+extern uint8_t *lastframe;
 
 typedef struct disp_conf {
 	uint8_t	dc_pin_clk;	/* Clock */
@@ -37,6 +38,9 @@ typedef enum disp_overlay {
 	DISP_DRAW_INVERT
 } disp_overlay_t;
 
+extern disp_mode_t	disp_mode;
+extern int		disp_fps;
+
 void puttext(uint8_t *, const char *, const font_t *, uint16_t, uint16_t);
 void sendswapcurframe(void);
 void sleep_sendswapcurframe(void);
@@ -46,8 +50,10 @@ void blt(uint8_t *, uint8_t *, uint32_t, int8_t, int, int);
 void drawmenu(uint8_t *, const char **, int, int, int, int, const font_t *,
 	uint16_t, uint16_t);
 
-void scrollframe_left(uint8_t *, int, uint8_t *);
+void scrollframe(uint8_t *, int, uint8_t *, int);
 
 void drawbox(uint8_t *, int x1, int y1, int x2, int y2, disp_overlay_t);
+
+void transframe(uint8_t *, int);
 
 #endif

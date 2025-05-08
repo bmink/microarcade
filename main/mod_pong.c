@@ -6,6 +6,7 @@
 #include "disp.h"
 #include "font.h"
 #include "font_c64.h"
+#include "font_pongscore.h"
 
 
 static const char *ltag = "pong";
@@ -35,11 +36,14 @@ static int pong_mode = PONG_MODE_SINGLE;
 
 #define PONG_FPS	30
 
-#define BALL_MAX_INIT_YVEL 2
 #define BALL_DECIMAL_FACTOR	10
 
+#define WINSCORE	11
+
+#define SCORETXT_MAXLEN	5
+
 static void
-pong_start(void)
+pong_newgame(void)
 {
 	rotary_config_t	rconf[ROTARY_CNT];	
 	int		ret;
@@ -52,10 +56,11 @@ pong_start(void)
 	int		firsthorizbounce;
 	int		rpaddleypos;
 	int		lpaddleypos;
-	int		newgame;
+	int		newserve;
+	int		lscore;
+	int		rscore;
+	char		scoretxt[SCORETXT_MAXLEN];
 
-
-	ESP_LOGI(ltag, "mod_pong_start() called");
 
 	memset(rconf, 0, sizeof(rotary_config_t) * ROTARY_CNT);
 	rconf[ROTARY_LEFT].rc_style = ROT_STYLE_BOUND;
@@ -83,21 +88,30 @@ pong_start(void)
 	disp_set_mode(DISP_MODE_FPS, PONG_FPS);
 
 	maxpressed = 0;
-	newgame = 1;
+	lscore = 0;
+	rscore = 0;
+	newserve = 1;
 	while(1) {
 
-		if(newgame) {
+		if(newserve) {
 			ballxpos = FRAME_WIDTH / 2;	
 			ballypos = (rand() % (FRAME_HEIGHT)) - 1 - BALL_HEIGHT;
 			ballxvel = (rand() % 2) ? 1 : -1;
-			ballyvel = (rand() % (BALL_MAX_INIT_YVEL * 10)) / 10;
 			ballyvel = 0;
 			firsthorizbounce = 1;
-			newgame = 0;
+			newserve = 0;
 		}
 
 		blt(curframe, middle_line, sizeof(middle_line),
 		    MIDDLE_LINE_WIDTH, MIDDLE_LINE_XPOS, 0);
+
+		snprintf(scoretxt, SCORETXT_MAXLEN, "%d", lscore);
+		puttext(curframe, scoretxt, &font_pongscore,
+		    MIDDLE_LINE_XPOS - 2 - strlen(scoretxt) * 5, 0);
+
+		snprintf(scoretxt, SCORETXT_MAXLEN, "%d", rscore);
+		puttext(curframe, scoretxt, &font_pongscore,
+		    MIDDLE_LINE_XPOS + MIDDLE_LINE_WIDTH + 2, 0);
 
 		lpaddleypos = rotary_get_value(ROTARY_LEFT);
 		blt(curframe, paddle, sizeof(paddle), PADDLE_WIDTH,
@@ -113,8 +127,13 @@ pong_start(void)
 
 		ballxpos += ballxvel;
 		
-		if(ballxpos < 0 || ballxpos > FRAME_WIDTH - 1 - BALL_WIDTH) {
-			++newgame;
+		if(ballxpos < 0) {
+			++rscore;
+			++newserve;
+		} else
+		if (ballxpos > FRAME_WIDTH - 1 - BALL_WIDTH) {
+			++lscore;
+			++newserve;
 		} else {
 			if((ballxpos <= PADDLE_XOFFS + PADDLE_WIDTH) &&
 			    (ballypos + BALL_HEIGHT - 1 >= lpaddleypos) &&
@@ -132,7 +151,7 @@ pong_start(void)
 			if((ballxpos >= FRAME_WIDTH - 1 - PADDLE_XOFFS -
 			    PADDLE_WIDTH - BALL_WIDTH) &&
 			    (ballypos + BALL_HEIGHT - 1 >= rpaddleypos) &&
-			    (ballypos <= rpaddleypos + PADDLE_HEIGHT)) {
+		    (ballypos <= rpaddleypos + PADDLE_HEIGHT)) {
 				ballxpos = FRAME_WIDTH - 1 - PADDLE_XOFFS -
 				    PADDLE_WIDTH - BALL_WIDTH;
 				if(firsthorizbounce) {
@@ -180,25 +199,29 @@ pong_start(void)
 
 end_label:
 
-	ESP_LOGI(ltag, "Restarting");
-
-	esp_restart();
-
-	/* Not reached */
 }
+
+
+#define MENU_ITEM_SINGLEPLAYER	0
+#define MENU_ITEM_MULTIPLAYER	1
+#define MENU_ITEM_CNT		2	
+
+static const char *menu_text[MENU_ITEM_CNT] = {
+	"Single Player",
+	"Multi Player"
+};
 
 
 void
-mod_pong_multi_start(void)
+mod_pong_start(void)
 {
-	pong_mode = PONG_MODE_MULTI; 
-	pong_start();
+	ESP_LOGI(ltag, "Pong starting");
+
+	uint8_t prevframe[FRAMESIZ];
+
+	pong_newgame();
+
+	ESP_LOGI(ltag, "Exiting Pong");
 }
 
 
-void
-mod_pong_single_start(void)
-{
-	pong_mode = PONG_MODE_SINGLE; 
-	pong_start();
-}

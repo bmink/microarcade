@@ -35,17 +35,14 @@ ball_t balls[MAX_BALLCNT] = { 0 };
 int ballcnt = 10;
 
 void mod_rotarytest_start(void);
-void mod_pong_single_start(void);
-void mod_pong_multi_start(void);
+void mod_pong_start(void);
 
-#define MAIN_MENU_ITEMCNT	14
+#define MAIN_MENU_ITEMCNT	12
 
 const char *	main_menu_text[MAIN_MENU_ITEMCNT] = {
 	"Rotary Test",
 	"Bouncy Balls",
 	"Pong",
-	" single player",
-	" two players",
 	"Clock",
 	"Etch-a-Sketch",
 	"Space Dodge",
@@ -61,9 +58,7 @@ typedef void (*mod_start_func_t)(void);
 mod_start_func_t main_menu_startfunc[MAIN_MENU_ITEMCNT] = {
 	mod_rotarytest_start,
 	NULL,
-	NULL,
-	mod_pong_single_start,
-	mod_pong_multi_start,
+	mod_pong_start,
 	NULL,
 	NULL,
 	NULL,
@@ -86,10 +81,11 @@ app_main(void)
 {
 	esp_err_t			ret;
 	gpio_config_t			gpioconf;
-	rotary_config_t			rconf[ROTARY_CNT];
 	uint8_t				mselidx;
+	rotary_config_t			rconf[ROTARY_CNT];
 	rotary_event_t			rev;
 	disp_conf_t			dconf;
+	uint8_t				savedframe[FRAMESIZ];
 
 	ret = ESP_OK;
 
@@ -148,13 +144,17 @@ app_main(void)
 	//if(esp_reset_reason() == ESP_RST_POWERON) {
 	if(1) {
 
-		/* Draw our initial state into curframe so splash will
-	 	 * transition into it at the end. */
+		/* Draw our initial state into curframe and save it away so
+		 * we can transition into it at the end of the splash.
+		 * Note we don't actually send the frame so it's not
+		 * displayed before the splash begins. */
 		drawmenu(curframe, main_menu_text, MAIN_MENU_ITEMCNT, mselidx,
 		    MAIN_MENU_LINECNT, MAIN_MENU_LINEMAXLEN, &font_c64,
 		    0, 0);
 
+		memcpy(savedframe, curframe, FRAMESIZ);
 		splash();
+		transframe(savedframe, 1);		
 	}
 
 	disp_set_mode(DISP_MODE_ADHOC, 0);
@@ -187,10 +187,15 @@ app_main(void)
 
 		case ROT_EVENT_BUTTON_RELEASE:
 
-			if(main_menu_startfunc[mselidx])
+printf("here\n");
+			if(main_menu_startfunc[mselidx]) {
+				memcpy(savedframe, lastframe, FRAMESIZ);
 				main_menu_startfunc[mselidx]();
-
-			/* Not reached */
+				transframe(savedframe, 0);		
+				disp_set_mode(DISP_MODE_ADHOC, 0);
+				rconf[ROTARY_LEFT].rc_start = mselidx;
+				rotary_reconfig(rconf, ROTARY_CNT);
+			}
 
 			break;
 

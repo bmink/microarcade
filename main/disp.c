@@ -15,7 +15,11 @@ static disp_conf_t	dconf;
 static uint8_t	frame1[FRAMESIZ]; /* Our ping-pong frames */
 static uint8_t	frame2[FRAMESIZ];
 
-uint8_t *curframe = frame1;
+uint8_t *curframe = frame1; /* The frame currently being drawn in */
+
+static uint8_t	lframe[FRAMESIZ]; /* Last sent frame (ie. what's currently
+				   * being displayed on the screen) */
+uint8_t	*lastframe = lframe;
 
 static SemaphoreHandle_t       sendframe_mutex;
 static uint8_t		*sendframe = NULL;
@@ -24,9 +28,9 @@ static TaskHandle_t	frame_sender_task;
 
 #define DISP_ADHOC_SENDTRY_WAITMS 10
 
-static disp_mode_t disp_mode = DISP_MODE_ADHOC;
+disp_mode_t disp_mode = DISP_MODE_ADHOC;
+int disp_fps;
 
-static int disp_fps;
 static int disp_ticks_per_frame;
 static TickType_t disp_last_frame_at;
 
@@ -183,6 +187,8 @@ sendswapcurframe(void)
 	else
 		curframe = frame1;
 
+	memcpy(lframe, sendframe, FRAMESIZ);
+
 	xTaskNotifyGive(frame_sender_task);
 
 end_label:
@@ -273,18 +279,16 @@ puttext(uint8_t *frame, const char *text, const font_t *fo, uint16_t x, uint16_t
 		}
 
 		if(*ch < fo->fo_ascii_min || *ch > fo->fo_ascii_max) {
-			/* Unsupported char */
-			fch = &fo->fo_chars['?' - fo->fo_ascii_min];
+			ESP_LOGW(ltag, "Font does not support character: %02x",
+			    *ch);
 		} else {
 			fch = &fo->fo_chars[*ch - fo->fo_ascii_min];
+			bitmap = fo->fo_bitmap + fch->fc_bitmap_offs;
+			blt(frame, bitmap, fch->fc_bitmap_siz, fch->fc_width,
+			    xpos, ypos);
+			xpos += fch->fc_width;
 		}
 
-		bitmap = fo->fo_bitmap + fch->fc_bitmap_offs;
-
-		blt(frame, bitmap, fch->fc_bitmap_siz, fch->fc_width,
-		    xpos, ypos);
-
-		xpos += fch->fc_width;
 
 	}
 }
@@ -410,10 +414,10 @@ drawmenu(uint8_t *frame, const char **mtext, int mitem_cnt, int mselidx,
 
 
 void
-scrollframe_left(uint8_t *frame, int xoffs, uint8_t *newframe)
+scrollframe(uint8_t *frame, int xoffs, uint8_t *newframe, int left)
 {
-	/* Scrolls frame offs pixels to the left. If newframe is not NULL
-	 * then the space on the right will be filled in from whatever is in
+	/* Scrolls frame xoffs pixels to the left or right. If newframe is
+	 * not NULL then the new space will be filled in from whatever is in
 	 * newframe */
 
 	int x;
@@ -427,26 +431,54 @@ scrollframe_left(uint8_t *frame, int xoffs, uint8_t *newframe)
 		myoffs = FRAME_WIDTH;
 
 	for(line = 0; line < 8; ++line) {
-		framecur = frame + line * 128;
-		if(newframe)
-			newframecur = newframe + line * 128;
-		else
-			newframecur = NULL;
 
-		for(x = 0; x < FRAME_WIDTH - myoffs; ++x) {
-			*framecur = *(framecur + myoffs);
-			++framecur;
-			
-		}
-		for(x = FRAME_WIDTH - myoffs; x < FRAME_WIDTH; ++x) {
-			if(*newframecur)
-				*framecur = *newframecur;
+		if(left) {
+			framecur = frame + line * 128;
+			for(x = 0; x < FRAME_WIDTH - myoffs; ++x) {
+				*framecur = *(framecur + myoffs);
+				++framecur;
+			}
+
+			if(newframe)
+				newframecur = newframe + line * 128;
 			else
-				*framecur = 0;
-			
-			++framecur;
-			if(newframecur)	
-				++newframecur;
+				newframecur = NULL;
+
+			for(x = 0; x < myoffs; ++x) {
+				if(*newframecur)
+					*framecur = *newframecur;
+				else
+					*framecur = 0;
+		
+				++framecur;
+				if(newframecur)	
+					++newframecur;
+			}
+		} else { /* right */
+			framecur = frame + line * 128 + FRAME_WIDTH - 1;
+
+			for(x = 0; x < FRAME_WIDTH - myoffs; ++x) {
+				*framecur = *(framecur - myoffs);
+				--framecur;
+			}
+
+			if(newframe)
+				newframecur = newframe + line * 128 +
+				    FRAME_WIDTH - myoffs;
+			else
+				newframecur = NULL;
+
+			framecur = frame + line * 128;
+			for(x = 0; x < myoffs; ++x) {
+				if(*newframecur)
+					*framecur = *newframecur;
+				else
+					*framecur = 0;
+		
+				++framecur;
+				if(newframecur)	
+					++newframecur;
+			}
 		}
 	}
 }
@@ -506,3 +538,34 @@ drawbox(uint8_t *frame, int x1, int y1, int x2, int y2, disp_overlay_t overlay)
 	}
 }
 
+
+#define TRANSFRAME_FPS               30
+#define TRANSFRAME_SCROLL_SPEED      8 /* Must be divisor of FRAME_WIDTH */
+
+void
+transframe(uint8_t *newframe, int left)
+{
+
+	disp_mode_t     savedmode;
+	int             savedfps;
+	uint8_t         nowframe[FRAMESIZ];
+	int             xscroll;
+
+	savedmode = disp_mode;
+	savedfps = disp_fps;
+
+	memcpy(nowframe, lastframe, FRAMESIZ);
+
+	disp_set_mode(DISP_MODE_FPS, TRANSFRAME_FPS);
+
+	for(xscroll = 0; xscroll < FRAME_WIDTH;
+	    xscroll += TRANSFRAME_SCROLL_SPEED) {
+		memcpy(curframe, nowframe, FRAMESIZ);
+
+		scrollframe(curframe, xscroll, newframe, left);
+
+		sleep_sendswapcurframe();
+	}
+
+        disp_set_mode(savedmode, savedfps);
+}

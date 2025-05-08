@@ -8,8 +8,6 @@
 #include "disp.h"
 
 
-static const char *ltag = "splash";
-
 uint8_t	domy_buf[24][128] = {
 	{ /* "frame_01" (32x32): vertical mapping */
 	  0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0xfc, 0xf8,
@@ -454,7 +452,7 @@ uint8_t	domy_buf[24][128] = {
 
 #define SPLASH_FPS	30	/* Must be multiple of DOMY_FPS to make Domy
 				 * animation work! */
-#define SPLASH_SECONDS	9
+#define SPLASH_SECONDS	8
 
 #define SPLASH_TITLE	"microarcade"
 #define SPLASH_TITLE_XPOS	40
@@ -463,8 +461,6 @@ uint8_t	domy_buf[24][128] = {
 #define FLICKER_SHORT	1	
 #define FLICKER_MED	2	
 #define FLICKER_LONG	4	
-
-#define SPLASH_TRANS_SCROLL_SPEED	8 /* Must be divisor of FRAME_WIDTH */
 
 #define SPLASH_SUBTITLE				"Have fun!"
 #define SPLASH_SUBTITLE_LEN			9
@@ -484,23 +480,9 @@ splash(void)
 	int	title_on;
 	int	flicker_dur;
 	int	second;
-	uint8_t	*returnframe;
-	int	xscroll;
 	char	subtitle[SPLASH_SUBTITLE_LEN + 1];
 	int	startsub;
 	int	t;
-
-	/* Allocate a temporary frame and copy curframe into it.
-	 * The application is expected to draw into curframe the screen
-	 * it will start with. At the end of the splash, we will transition
-	 * into this frame. */
-
-	returnframe = malloc(FRAMESIZ);
-	if(returnframe == NULL) {
-		ESP_LOGE(ltag, "Could not allocate return frame");
-		return;
-	}
-	memcpy(returnframe, curframe, FRAMESIZ);
 
 	clearcurframe();
 		
@@ -513,6 +495,7 @@ splash(void)
 	domy_reveal = DOMY_HEIGHT / 2;
 	itercnt = SPLASH_FPS * SPLASH_SECONDS;
 	startsub = SPLASH_SUBTITLE_STARTSECOND * SPLASH_FPS;
+	memset(subtitle, 0, SPLASH_SUBTITLE_LEN + 1);
 	for(i = 0; i < itercnt; ++i) {
 
 		second = i / SPLASH_FPS;
@@ -576,6 +559,7 @@ splash(void)
 				--flicker_dur;
 
 		} else
+#if 0
 		if(second == 3) {
 			/* Two seconds after start, flicker the title
 			 * (more on than off */
@@ -587,7 +571,8 @@ splash(void)
 				--flicker_dur;
 
 		} else
-		if(second >= 4) {
+#endif
+		if(second >= 3) {
 			/* Three seconds after start, title should be on */ 
 			title_on = 1;
 		}
@@ -597,7 +582,7 @@ splash(void)
 			    SPLASH_TITLE_XPOS, SPLASH_TITLE_YPOS);
 		}
 
-		if(i > startsub) {
+		if(i >= startsub) {
 
 			if((i % SPLASH_SUBTITLE_FRAMES_PER_SHUFFLE)
 			    == 0) {
@@ -618,20 +603,7 @@ splash(void)
 			    SPLASH_SUBTITLE_XPOS, SPLASH_SUBTITLE_YPOS);
 		}
 			
-
-		if(i >= itercnt - FRAME_WIDTH / SPLASH_TRANS_SCROLL_SPEED) {
-			/* At the end, transition splash streen to main menu */
-			xscroll = (i - (itercnt - FRAME_WIDTH /
-			    SPLASH_TRANS_SCROLL_SPEED)) *
-			    SPLASH_TRANS_SCROLL_SPEED ;
-
-			scrollframe_left(curframe, xscroll, returnframe);
-		}
-
 		sleep_sendswapcurframe();
-
 	}
-
-	free(returnframe);
 }
 
