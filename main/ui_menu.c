@@ -7,6 +7,7 @@
 #include "ui_menu.h"
 #include "disp.h"
 #include "font_c64.h"
+#include "local_context.h"
 
 static const char *ltag = "ui_menu";
 
@@ -18,17 +19,18 @@ drawmenu(uint8_t *frame, ui_menu_item_t *mitem, int mitem_cnt, int mselidx,
         int maxlinecnt, int maxlinelen, const font_t *font, uint16_t xpos,
         uint16_t ypos)
 {
-        int     i;
-        int     mdispidx;
-        char    displin[MENU_MAXLINEBUFSIZ];
-        int     lmaxlen;
+        int     	i;
+        int     	mdispidx;
+        char    	displin[MENU_MAXLINEBUFSIZ];
+        int     	lmaxlen;
 
         mdispidx = ((int)(mselidx / maxlinecnt)) * maxlinecnt;
         for(i = 0; i < maxlinecnt; ++i) {
                 if(i + mdispidx >= mitem_cnt)
                         break;
 
-                lmaxlen = maxlinelen;
+                lmaxlen = maxlinelen + 2; /* Account for selector ('*') and
+					   * '\0' */
                 if(lmaxlen > MENU_MAXLINEBUFSIZ)
                         lmaxlen = MENU_MAXLINEBUFSIZ;
 
@@ -41,18 +43,25 @@ drawmenu(uint8_t *frame, ui_menu_item_t *mitem, int mitem_cnt, int mselidx,
         }
 }
 
-#define MENU_MAXLINECNT         8
-#define MENU_MAXLINELEN         16
+
 
 int
-ui_showmenu(ui_menu_item_t *mitems)
+ui_showmenu(ui_menu_item_t *mitems, int maxlinecnt, int maxlinelen,
+	ui_menu_visual_mode_t vmode)
 {
 	int		mitemscnt;
 	ui_menu_item_t	*mitem;
 	rotary_config_t	rconf[ROTARY_CNT];
-	uint8_t		tempframe[FRAMESIZ];
+	uint8_t		*tempframe;
 	int		mselidx;
 	rotary_event_t	rev;
+	local_context_t	savedlc;
+	int		retval;
+	int		xpos;
+	int		ypos;
+	int		menuwidth;
+	int		menuheight;
+	uint8_t		*bgframe;
 
 	/* Shows a menu and when one of the items are selected, executes the
 	 * action associated with the item.
@@ -68,6 +77,12 @@ ui_showmenu(ui_menu_item_t *mitems)
 	if(mitemscnt == 0)
 		return -1;
 
+	tempframe = NULL;
+	bgframe = NULL;
+	retval = -1;
+
+	save_lcontext(&savedlc);
+
 	memset(&rconf, 0, sizeof(rotary_config_t) * ROTARY_CNT);
 	rconf[ROTARY_LEFT].rc_style = ROT_STYLE_BOUND;
 	rconf[ROTARY_LEFT].rc_min = 0;
@@ -77,20 +92,51 @@ ui_showmenu(ui_menu_item_t *mitems)
 		return -1;
 	}
 
-	mselidx = 0;
-	disp_set_mode(DISP_MODE_ADHOC, 0);
+	rotary_event_queue_reset();
 
-	/* Draw menu into tframe, for transition */
-	memset(tempframe, 0, FRAMESIZ);
-	drawmenu(tempframe, mitems, mitemscnt, mselidx,
-	    MENU_MAXLINECNT, MENU_MAXLINELEN, &font_c64, 0, 0);
-	transframe(tempframe, 1);
+	disp_set_mode(DISP_MODE_ADHOC, 0);
+	mselidx = 0;
+
+	xpos = ypos = 0;
+
+	menuwidth = (maxlinelen + 1) * 8;
+	menuheight = maxlinecnt * 8;
+
+	if(vmode == MENU_CENTER_OVERLAY) {
+		xpos = (FRAME_WIDTH - menuwidth) / 2;
+		ypos = (FRAME_HEIGHT - menuheight) / 2;
+		/* Save the current background */
+		bgframe = getframebuf();
+		memcpy(bgframe, lastframe, FRAMESIZ);
+	} else
+	if(vmode == MENU_FULL_SCROLL) {
+		/* Draw menu into temp frame, for transition */
+		tempframe = getframebuf();
+		drawmenu(tempframe, mitems, mitemscnt, mselidx,
+		    maxlinecnt, maxlinelen, &font_c64, 0, 0);
+		transframe(tempframe, 1);
+		releaseframebuf(tempframe);
+		tempframe = NULL;
+	}
 
 	/* Enter main loop */
         while(1) {	
 
+		if(vmode == MENU_CENTER_OVERLAY) {
+			/* Fill with background */
+			memcpy(curframe, bgframe, FRAMESIZ);
+
+			/* Draw a frame */
+			drawbox(curframe, xpos - 2, ypos - 2,
+			    xpos + menuwidth + 2, ypos + menuheight + 2,
+			    DISP_DRAW_ON);
+			drawbox(curframe, xpos - 1, ypos - 1,
+			    xpos + menuwidth + 1, ypos + menuheight + 1,
+			    DISP_DRAW_OFF);
+		}
+
 		drawmenu(curframe, mitems, mitemscnt, mselidx,
-		    MENU_MAXLINECNT, MENU_MAXLINELEN, &font_c64, 0, 0);
+		    maxlinecnt, maxlinelen, &font_c64, xpos, ypos);
 
 		sendswapcurframe();
 
@@ -117,6 +163,7 @@ ui_showmenu(ui_menu_item_t *mitems)
 
 				/* Save current displayed frame for
 				 * transitioning back */
+				tempframe = getframebuf();
                                 memcpy(tempframe, lastframe, FRAMESIZ);
 
 				/* Call the function */
@@ -124,14 +171,14 @@ ui_showmenu(ui_menu_item_t *mitems)
 
 				/* Transition back */
                                 transframe(tempframe, 0);
-				
-				/* Reset display mode and rotarys */
-                                disp_set_mode(DISP_MODE_ADHOC, 0);
-                                rconf[ROTARY_LEFT].rc_start = mselidx;
-                                rotary_reconfig(rconf, ROTARY_CNT);
-                                rotary_event_queue_reset();
+				releaseframebuf(tempframe);
+				tempframe = NULL;
 				
 				break;
+
+			case MIT_RETURN_VAL:
+				retval = mitems[mselidx].mi_returnval;
+				goto return_label;
 
 			default:
 				break;
@@ -140,11 +187,17 @@ ui_showmenu(ui_menu_item_t *mitems)
 
                 default:
                         break;
-
                 }
-
 	}
 
-	/* Not reached */
-	return -1;
+return_label:
+
+	if(bgframe != NULL) {
+		releaseframebuf(bgframe);
+		bgframe = NULL;
+	}	
+
+	restore_lcontext(&savedlc);
+
+	return retval;
 }

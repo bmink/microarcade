@@ -7,6 +7,8 @@
 #include "font.h"
 #include "font_c64.h"
 #include "font_pongscore.h"
+#include "ui_menu.h"
+#include "local_context.h"
 
 
 static const char *ltag = "pong";
@@ -29,21 +31,62 @@ static uint8_t paddle[6] = { 0xff, 0xff, 0xff, 0x0f, 0x0f, 0x0f };
 #define PADDLE_HEIGHT	12	
 #define PADDLE_XOFFS	3
 
-#define PONG_MODE_SINGLE	0
-#define PONG_MODE_MULTI		1
-
-static int pong_mode = PONG_MODE_SINGLE;
-
 #define PONG_FPS	30
-
-#define BALL_DECIMAL_FACTOR	10
 
 #define WINSCORE	11
 
-#define SCORETXT_MAXLEN	5
+#define SCORETXT_MAXLEN	15
+
+#define GO_MENU_VAL_PLAY_AGAIN	1
+#define GO_MENU_VAL_EXIT	2
+#define GO_MENU_LINELEN 	10
+
+static ui_menu_item_t	game_over_menu[] = {
+	{ "Play Again", MIT_RETURN_VAL, NULL, GO_MENU_VAL_PLAY_AGAIN, NULL },
+	{ "Exit", MIT_RETURN_VAL, NULL, GO_MENU_VAL_EXIT, NULL },
+	{ NULL }
+};
+
+
+#define SECLEN	2
+
+void
+show_countdown()
+{
+	int		i;
+	local_context_t	savedlc;
+	char		sec[SECLEN];
+
+	save_lcontext(&savedlc);	
+
+	disp_set_mode(DISP_MODE_ADHOC, 0);
+	for(i = 3; i > 0; --i) {
+		puttext(curframe, "Get Ready!", &font_c64,
+		    (FRAME_WIDTH - 10 * 8) / 2, 10);
+		sendswapcurframe();
+		vTaskDelay(pdMS_TO_TICKS(100));
+
+		puttext(curframe, "Get Ready!", &font_c64,
+		    (FRAME_WIDTH - 10 * 8) / 2, 10);
+		snprintf(sec, SECLEN, "%d", i);
+		puttext(curframe, sec, &font_c64, (FRAME_WIDTH - 8) / 2, 28);
+		sendswapcurframe();
+		vTaskDelay(pdMS_TO_TICKS(900));
+	}
+
+	restore_lcontext(&savedlc);	
+
+}
+
+#define PONG_MODE_MULTI		0
+#define PONG_MODE_SINGLE_L	1
+#define PONG_MODE_SINGLE_R	2
+#define PONG_MODE_COMPVCOMP	3
+
+#define COMP_ACTION_DISTANCE	110
 
 static void
-pong_newgame(void)
+pong_newgame(int mode)
 {
 	rotary_config_t	rconf[ROTARY_CNT];	
 	int		ret;
@@ -60,7 +103,8 @@ pong_newgame(void)
 	int		lscore;
 	int		rscore;
 	char		scoretxt[SCORETXT_MAXLEN];
-
+	int		lplayercomp;
+	int		rplayercomp;
 
 	memset(rconf, 0, sizeof(rotary_config_t) * ROTARY_CNT);
 	rconf[ROTARY_LEFT].rc_style = ROT_STYLE_BOUND;
@@ -83,6 +127,19 @@ pong_newgame(void)
 		goto end_label;
 	}
 
+	lplayercomp = rplayercomp = 0;
+	if(mode == PONG_MODE_SINGLE_L)
+		++rplayercomp;
+	else
+	if(mode == PONG_MODE_SINGLE_R)
+		++lplayercomp;
+	else
+	if(mode == PONG_MODE_COMPVCOMP) {
+		++rplayercomp;
+		++lplayercomp;
+	}
+
+
 	srand((unsigned int)xTaskGetTickCount());
 
 	disp_set_mode(DISP_MODE_FPS, PONG_FPS);
@@ -91,6 +148,9 @@ pong_newgame(void)
 	lscore = 0;
 	rscore = 0;
 	newserve = 1;
+	show_countdown();
+	lpaddleypos = rpaddleypos = (FRAME_HEIGHT - PADDLE_HEIGHT) / 2;
+
 	while(1) {
 
 		if(newserve) {
@@ -105,15 +165,19 @@ pong_newgame(void)
 		blt(curframe, middle_line, sizeof(middle_line),
 		    MIDDLE_LINE_WIDTH, MIDDLE_LINE_XPOS, 0);
 
-		snprintf(scoretxt, SCORETXT_MAXLEN, "%d", lscore);
-		puttext(curframe, scoretxt, &font_pongscore,
-		    MIDDLE_LINE_XPOS - 2 - strlen(scoretxt) * 5, 0);
-
-		snprintf(scoretxt, SCORETXT_MAXLEN, "%d", rscore);
-		puttext(curframe, scoretxt, &font_pongscore,
-		    MIDDLE_LINE_XPOS + MIDDLE_LINE_WIDTH + 2, 0);
-
-		lpaddleypos = rotary_get_value(ROTARY_LEFT);
+		if(!lplayercomp) {
+			lpaddleypos = rotary_get_value(ROTARY_LEFT);
+		} else {
+			if(ballxpos < COMP_ACTION_DISTANCE) {
+				if(lpaddleypos < ballypos &&
+				    lpaddleypos < FRAME_HEIGHT -
+				    PADDLE_HEIGHT - 1)
+					++lpaddleypos;
+				else
+				if(lpaddleypos > ballypos && lpaddleypos > 0)
+					--lpaddleypos;
+			}
+		}
 		blt(curframe, paddle, sizeof(paddle), PADDLE_WIDTH,
 		    PADDLE_XOFFS, lpaddleypos);
 
@@ -165,6 +229,14 @@ pong_newgame(void)
 			}
 		}
 
+		snprintf(scoretxt, SCORETXT_MAXLEN, "%d", lscore);
+		puttext(curframe, scoretxt, &font_pongscore,
+		    MIDDLE_LINE_XPOS - 2 - strlen(scoretxt) * 5, 0);
+
+		snprintf(scoretxt, SCORETXT_MAXLEN, "%d", rscore);
+		puttext(curframe, scoretxt, &font_pongscore,
+		    MIDDLE_LINE_XPOS + MIDDLE_LINE_WIDTH + 2, 0);
+
 		ballypos += ballyvel;
 		if(ballypos < 0) {
 			ballypos = 0;
@@ -194,32 +266,51 @@ pong_newgame(void)
 		/* Wait until time to send the next frame, then send
 		 * the frame. */
 		sleep_sendswapcurframe();
-	}
 
+		if(lscore >= WINSCORE || rscore >= WINSCORE) {
+			ret = ui_showmenu(game_over_menu, 2, 10,
+			    MENU_CENTER_OVERLAY);
+			if(ret == GO_MENU_VAL_PLAY_AGAIN) {
+				lscore = rscore = 0;
+				++newserve;
+				show_countdown();
+			} else
+			if(ret == GO_MENU_VAL_EXIT) {
+				goto end_label;
+			}
+		}
+	}
 
 end_label:
 
 }
 
 
-#define MENU_ITEM_SINGLEPLAYER	0
-#define MENU_ITEM_MULTIPLAYER	1
-#define MENU_ITEM_CNT		2	
+#define PO_MENU_VAL_MULTI_PLAYER	0
+#define PO_MENU_VAL_EXITPONG		1
 
-static const char *menu_text[MENU_ITEM_CNT] = {
-	"Single Player",
-	"Multi Player"
+
+static ui_menu_item_t	pong_menu[] = {
+	{ "Single Player", MIT_NONE, NULL, 0, NULL },
+	{ "Multi Player", MIT_RETURN_VAL, NULL, PO_MENU_VAL_MULTI_PLAYER,
+		NULL },
+	{ "Back", MIT_RETURN_VAL, NULL, PO_MENU_VAL_EXITPONG, NULL },
+	{ NULL }
 };
 
 
 void
 mod_pong_start(void)
 {
+	local_context_t	savedlc;
+
 	ESP_LOGI(ltag, "Pong starting");
 
-	uint8_t prevframe[FRAMESIZ];
+	save_lcontext(&savedlc);	
 
-	pong_newgame();
+	pong_newgame(PONG_MODE_SINGLE_R);
+
+	restore_lcontext(&savedlc);	
 
 	ESP_LOGI(ltag, "Exiting Pong");
 }

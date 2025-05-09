@@ -26,7 +26,14 @@ typedef struct ui_menu_item {
 } ui_menu_item_t;
 
 
-int ui_showmenu(ui_menu_item_t *);
+typedef enum ui_menu_visual_mode {
+	MENU_FULL_SCROLL,
+	MENU_FULL_IMMEDIATE,
+	MENU_CENTER_OVERLAY,
+} ui_menu_visual_mode_t;
+
+
+int ui_showmenu(ui_menu_item_t *, int, int, ui_menu_visual_mode_t);
 
 
 #endif

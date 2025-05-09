@@ -28,8 +28,8 @@ static TaskHandle_t	frame_sender_task;
 
 #define DISP_ADHOC_SENDTRY_WAITMS 10
 
-disp_mode_t disp_mode = DISP_MODE_ADHOC;
-int disp_fps;
+static disp_mode_t disp_mode = DISP_MODE_ADHOC;
+static int disp_fps;
 
 static int disp_ticks_per_frame;
 static TickType_t disp_last_frame_at;
@@ -508,7 +508,7 @@ drawbox(uint8_t *frame, int x1, int y1, int x2, int y2, disp_overlay_t overlay)
 }
 
 
-#define TRANSFRAME_FPS               30
+#define TRANSFRAME_FPS               35
 #define TRANSFRAME_SCROLL_SPEED      8 /* Must be divisor of FRAME_WIDTH */
 
 void
@@ -517,12 +517,13 @@ transframe(uint8_t *newframe, int left)
 
 	disp_mode_t     savedmode;
 	int             savedfps;
-	uint8_t         nowframe[FRAMESIZ];
+	uint8_t         *nowframe;
 	int             xscroll;
 
 	savedmode = disp_mode;
 	savedfps = disp_fps;
 
+	nowframe = getframebuf();
 	memcpy(nowframe, lastframe, FRAMESIZ);
 
 	disp_set_mode(DISP_MODE_FPS, TRANSFRAME_FPS);
@@ -537,4 +538,59 @@ transframe(uint8_t *newframe, int left)
 	}
 
         disp_set_mode(savedmode, savedfps);
+	releaseframebuf(nowframe);
+}
+
+
+/* The framebuf functions allow allow applications request / release frame
+ * buffers for temporary use. For example, applications may want to hold
+ * on to display contents so they can later restore / transition back to it.
+ *
+ * We implement a pool of 8 statically allocated frame buffers. If no more
+ * buffers are free, we abort: there simply shouldn't ever
+ * be a need for an application to hold that many frames concurrently,
+ * so we have very likely gotten ourselves in a very bad state. */
+static uint8_t	framebufs[8][FRAMESIZ];
+static uint8_t	framebufs_busy = 0;
+
+uint8_t *
+getframebuf(void)
+{
+	int	i;
+	uint8_t	busybyte;
+
+	for(busybyte = 0x01, i = 0; i < 8; busybyte <<= 1, ++i) {
+		if((framebufs_busy & busybyte) == 0) {
+			framebufs_busy |= busybyte;
+			return framebufs[i];
+		}
+	}
+
+	esp_system_abort("Out of framebufs");
+}
+
+
+void
+releaseframebuf(uint8_t *buf)
+{
+	int	i;
+	uint8_t	busybyte;
+
+	for(busybyte = 0x01, i = 0; i < 8; busybyte <<= 1, ++i) {
+		if(buf == framebufs[i]) {
+			framebufs_busy &= ~busybyte;
+			memset(framebufs[i], 0, FRAMESIZ);
+			return;
+		}
+	}
+
+	ESP_LOGE(ltag, "Trying to release an unknown framebuf");
+}
+
+
+void
+disp_get_mode(disp_mode_t *modep, int *fpsp)
+{
+	*modep = disp_mode;
+	*fpsp = disp_fps;
 }

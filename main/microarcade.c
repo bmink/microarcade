@@ -57,12 +57,12 @@ ui_menu_item_t	main_menu[] = {
 	{ "Test3", MIT_NONE, NULL, 0, NULL },
 	{ "Test4", MIT_NONE, NULL, 0, NULL },
 	{ "Test5", MIT_NONE, NULL, 0, NULL },
-	{  NULL, MIT_NONE, NULL, 0, NULL }
+	{  NULL }
 };
 
 
 #define MAIN_MENU_LINEMAXLEN	16
-#define MAIN_MENU_LINECNT	8
+#define MAIN_MENU_MAXLINECNT	8
 
 
 void splash(void);
@@ -118,10 +118,11 @@ app_main(void)
 	}
 
 	/* Do splash screen only when first powered on */
-	//if(esp_reset_reason() == ESP_RST_POWERON)
+	if(esp_reset_reason() == ESP_RST_POWERON)
 		splash();
 
-	ui_showmenu(main_menu);
+	ui_showmenu(main_menu, MAIN_MENU_MAXLINECNT, MAIN_MENU_LINEMAXLEN,
+	    MENU_FULL_SCROLL);
 
 	/* Not reached */
 	ESP_LOGE(ltag, "Should not be here, main menu returned");
