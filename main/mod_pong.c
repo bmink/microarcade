@@ -78,15 +78,10 @@ show_countdown()
 
 }
 
-#define PONG_MODE_MULTI		0
-#define PONG_MODE_SINGLE_L	1
-#define PONG_MODE_SINGLE_R	2
-#define PONG_MODE_COMPVCOMP	3
-
 #define COMP_ACTION_DISTANCE	110
 
 static void
-pong_newgame(int mode)
+pong_newgame(int lplayercomp, int rplayercomp)
 {
 	rotary_config_t	rconf[ROTARY_CNT];	
 	int		ret;
@@ -103,8 +98,10 @@ pong_newgame(int mode)
 	int		lscore;
 	int		rscore;
 	char		scoretxt[SCORETXT_MAXLEN];
-	int		lplayercomp;
-	int		rplayercomp;
+	int		ydist;
+	local_context_t	savedlc;
+
+	save_lcontext(&savedlc);	
 
 	memset(rconf, 0, sizeof(rotary_config_t) * ROTARY_CNT);
 	rconf[ROTARY_LEFT].rc_style = ROT_STYLE_BOUND;
@@ -126,19 +123,6 @@ pong_newgame(int mode)
 		ESP_LOGE(ltag, "Could not reconfigure rotarys");
 		goto end_label;
 	}
-
-	lplayercomp = rplayercomp = 0;
-	if(mode == PONG_MODE_SINGLE_L)
-		++rplayercomp;
-	else
-	if(mode == PONG_MODE_SINGLE_R)
-		++lplayercomp;
-	else
-	if(mode == PONG_MODE_COMPVCOMP) {
-		++rplayercomp;
-		++lplayercomp;
-	}
-
 
 	srand((unsigned int)xTaskGetTickCount());
 
@@ -169,20 +153,34 @@ pong_newgame(int mode)
 			lpaddleypos = rotary_get_value(ROTARY_LEFT);
 		} else {
 			if(ballxpos < COMP_ACTION_DISTANCE) {
-				if(lpaddleypos < ballypos &&
-				    lpaddleypos < FRAME_HEIGHT -
-				    PADDLE_HEIGHT - 1)
-					++lpaddleypos;
+				ydist = (ballypos + BALL_HEIGHT / 2) -
+				    (lpaddleypos + PADDLE_HEIGHT / 2);
+				if(ydist < -2 && lpaddleypos > 1)
+					lpaddleypos -= 2;
 				else
-				if(lpaddleypos > ballypos && lpaddleypos > 0)
-					--lpaddleypos;
+				if(ydist > 2 && lpaddleypos < (FRAME_HEIGHT -
+				    PADDLE_HEIGHT - 2))
+					lpaddleypos += 2;
 			}
 		}
 		blt(curframe, paddle, sizeof(paddle), PADDLE_WIDTH,
 		    PADDLE_XOFFS, lpaddleypos);
 
-		rpaddleypos = FRAME_HEIGHT - rotary_get_value(ROTARY_RIGHT) -
-		    1 - PADDLE_HEIGHT;
+		if(!rplayercomp) {
+			rpaddleypos = FRAME_HEIGHT -
+			    rotary_get_value(ROTARY_RIGHT) - 1 - PADDLE_HEIGHT;
+		} else {
+			if(ballxpos > FRAME_WIDTH - COMP_ACTION_DISTANCE - 1) {
+				ydist = (ballypos + BALL_HEIGHT / 2) -
+				    (rpaddleypos + PADDLE_HEIGHT / 2);
+				if(ydist < -2 && rpaddleypos > 1)
+					rpaddleypos -= 2;
+				else
+				if(ydist > 2 && rpaddleypos < (FRAME_HEIGHT -
+				    PADDLE_HEIGHT - 2))
+					rpaddleypos += 2;
+			}
+		}
 		blt(curframe, paddle, sizeof(paddle), PADDLE_WIDTH,
 		    FRAME_WIDTH - 1 - PADDLE_XOFFS - PADDLE_WIDTH, rpaddleypos);
 
@@ -283,18 +281,41 @@ pong_newgame(int mode)
 
 end_label:
 
+	restore_lcontext(&savedlc);	
+
+}
+
+void
+pong_newgame_h_h(void)
+{
+	pong_newgame(0, 0);
+}
+
+void
+pong_newgame_c_h(void)
+{
+	pong_newgame(1, 0);
+}
+
+void
+pong_newgame_h_c(void)
+{
+	pong_newgame(0, 1);
+}
+
+void
+pong_newgame_c_c(void)
+{
+	pong_newgame(0, 0);
 }
 
 
-#define PO_MENU_VAL_MULTI_PLAYER	0
-#define PO_MENU_VAL_EXITPONG		1
-
-
 static ui_menu_item_t	pong_menu[] = {
-	{ "Single Player", MIT_NONE, NULL, 0, NULL },
-	{ "Multi Player", MIT_RETURN_VAL, NULL, PO_MENU_VAL_MULTI_PLAYER,
-		NULL },
-	{ "Back", MIT_RETURN_VAL, NULL, PO_MENU_VAL_EXITPONG, NULL },
+	{ "Human vs Human", MIT_CALLFUNC, pong_newgame_h_h, 0, NULL },
+	{ "Comp. vs Human", MIT_CALLFUNC, pong_newgame_c_h, 0, NULL },
+	{ "Human vs Comp.", MIT_CALLFUNC, pong_newgame_h_c, 0, NULL },
+	{ "Comp. vs Comp.", MIT_CALLFUNC, pong_newgame_c_c, 0, NULL },
+	{ "Back", MIT_RETURN_VAL, NULL, 0, NULL },
 	{ NULL }
 };
 
@@ -308,7 +329,9 @@ mod_pong_start(void)
 
 	save_lcontext(&savedlc);	
 
-	pong_newgame(PONG_MODE_SINGLE_R);
+	ui_showmenu(pong_menu, 8, 16, MENU_FULL_SCROLL);
+	
+	/* If we are here, the user selected "Back" */
 
 	restore_lcontext(&savedlc);	
 
