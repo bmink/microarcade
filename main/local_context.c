@@ -33,8 +33,4 @@ restore_lcontext(local_context_t *lc)
 	rotary_event_queue_reset();
 
 	disp_set_mode(lc->lc_disp_mode, lc->lc_disp_fps);
-	
-
-
-
 }

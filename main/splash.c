@@ -8,6 +8,173 @@
 #include "disp.h"
 
 
+uint8_t	domy_buf[24][128];	/* See bottom of file for data */
+
+#define DOMY_XPOS		5
+#define DOMY_YPOS		10
+#define DOMY_WIDTH		32
+#define DOMY_HEIGHT		32
+#define DOMY_FRAMECNT		24
+#define DOMY_FPS		10
+
+#define SPLASH_FPS	30	/* Must be multiple of DOMY_FPS to make Domy
+				 * animation work! */
+#define SPLASH_SECONDS	8
+
+#define SPLASH_TITLE	"microarcade"
+#define SPLASH_TITLE_XPOS	40
+#define SPLASH_TITLE_YPOS	25
+
+#define FLICKER_SHORT	1	
+#define FLICKER_MED	2	
+#define FLICKER_LONG	4	
+
+#define SPLASH_SUBTITLE				"Have fun!"
+#define SPLASH_SUBTITLE_LEN			9
+#define SPLASH_SUBTITLE_FRAMES_PER_SHUFFLE	3
+#define SPLASH_SUBTITLE_FRAMES_PER_LETTER	8
+#define SPLASH_SUBTITLE_STARTSECOND		4
+#define SPLASH_SUBTITLE_XPOS			50	
+#define SPLASH_SUBTITLE_YPOS			35
+
+void
+splash(void)
+{
+	int	i;
+	int	itercnt;
+	int	domy_idx;
+	int	domy_reveal;
+	int	title_on;
+	int	flicker_dur;
+	int	second;
+	char	subtitle[SPLASH_SUBTITLE_LEN + 1];
+	int	startsub;
+	int	t;
+
+	clearcurframe();
+		
+	disp_set_mode(DISP_MODE_FPS, SPLASH_FPS);
+
+	flicker_dur = 0;
+	title_on = 0;
+
+	domy_idx = 0;
+	domy_reveal = DOMY_HEIGHT / 2;
+	itercnt = SPLASH_FPS * SPLASH_SECONDS;
+	startsub = SPLASH_SUBTITLE_STARTSECOND * SPLASH_FPS;
+	memset(subtitle, 0, SPLASH_SUBTITLE_LEN + 1);
+	for(i = 0; i < itercnt; ++i) {
+
+		second = i / SPLASH_FPS;
+
+		blt(curframe, domy_buf[domy_idx], sizeof(domy_buf[domy_idx]),
+		    DOMY_WIDTH, DOMY_XPOS, DOMY_YPOS);
+		
+		if(i % (SPLASH_FPS / DOMY_FPS) == 0) {
+			++domy_idx;
+			if((domy_idx % DOMY_FRAMECNT) == 0)
+				domy_idx = 0;	
+		}
+
+		if(domy_reveal > 0) {
+			domy_reveal -= 2;
+			if(domy_reveal < 0)
+				domy_reveal = 0;
+		}
+	
+		if(domy_reveal) {
+			drawbox(curframe, DOMY_XPOS, DOMY_YPOS,
+			    DOMY_XPOS + DOMY_WIDTH,
+			    DOMY_YPOS + domy_reveal,
+			    DISP_DRAW_OFF);
+
+			drawbox(curframe, DOMY_XPOS,
+			    DOMY_YPOS + DOMY_HEIGHT - domy_reveal,
+			    DOMY_XPOS + DOMY_WIDTH,
+			    DOMY_YPOS + DOMY_HEIGHT,
+			    DISP_DRAW_OFF);
+
+#if 0
+			drawbox(curframe, DOMY_XPOS,
+			    DOMY_YPOS + (DOMY_HEIGHT - domy_reveal),
+			    DOMY_XPOS + DOMY_WIDTH, DOMY_YPOS + DOMY_HEIGHT,
+			    DISP_DRAW_OFF);
+#endif
+		}
+
+		if(second == 1) {
+			/* One second after start, flicker the title
+	                 * (more off than on) */
+
+			if(flicker_dur <= 0) {
+				title_on = rand() % 2;
+				flicker_dur = rand() %
+				    (title_on ? FLICKER_SHORT : FLICKER_LONG);
+				
+			} else 
+				--flicker_dur;
+
+		} else
+		if(second == 2) {
+			/* Two seconds after start, flicker the title
+			 * (slightly more on than off) */
+			if(flicker_dur <= 0) {
+				title_on = rand() % 2;
+				flicker_dur = rand() %
+				    (title_on ? FLICKER_MED : FLICKER_SHORT);
+			} else 
+				--flicker_dur;
+
+		} else
+#if 0
+		if(second == 3) {
+			/* Two seconds after start, flicker the title
+			 * (more on than off */
+			if(flicker_dur <= 0) {
+				title_on = rand() % 2;
+				flicker_dur = rand() %
+				    (title_on ? FLICKER_LONG : FLICKER_SHORT);
+			} else 
+				--flicker_dur;
+
+		} else
+#endif
+		if(second >= 3) {
+			/* Three seconds after start, title should be on */ 
+			title_on = 1;
+		}
+
+		if(title_on) {
+			puttext(curframe, SPLASH_TITLE, &font_c64,
+			    SPLASH_TITLE_XPOS, SPLASH_TITLE_YPOS);
+		}
+
+		if(i >= startsub) {
+
+			if((i % SPLASH_SUBTITLE_FRAMES_PER_SHUFFLE)
+			    == 0) {
+				memset(subtitle, 0, SPLASH_SUBTITLE_LEN + 1);
+				for(t = 0; t < SPLASH_SUBTITLE_LEN; ++t) {
+					if((i - startsub) < ((t+2) *
+					  SPLASH_SUBTITLE_FRAMES_PER_LETTER)) {
+					subtitle[t] = (rand() %
+					    (font_picopixel.fo_ascii_max - 
+					    font_picopixel.fo_ascii_min)) +
+					    font_picopixel.fo_ascii_min;
+					} else
+						subtitle[t] =
+						    SPLASH_SUBTITLE[t]; 
+				}
+			}
+			puttext(curframe, subtitle, &font_picopixel,
+			    SPLASH_SUBTITLE_XPOS, SPLASH_SUBTITLE_YPOS);
+		}
+			
+		sleep_sendswapcurframe();
+	}
+}
+
+
 uint8_t	domy_buf[24][128] = {
 	{ /* "frame_01" (32x32): vertical mapping */
 	  0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0xfc, 0xf8,
@@ -443,167 +610,4 @@ uint8_t	domy_buf[24][128] = {
 };
 
 
-#define DOMY_XPOS		5
-#define DOMY_YPOS		10
-#define DOMY_WIDTH		32
-#define DOMY_HEIGHT		32
-#define DOMY_FRAMECNT		24
-#define DOMY_FPS		10
-
-#define SPLASH_FPS	30	/* Must be multiple of DOMY_FPS to make Domy
-				 * animation work! */
-#define SPLASH_SECONDS	8
-
-#define SPLASH_TITLE	"microarcade"
-#define SPLASH_TITLE_XPOS	40
-#define SPLASH_TITLE_YPOS	25
-
-#define FLICKER_SHORT	1	
-#define FLICKER_MED	2	
-#define FLICKER_LONG	4	
-
-#define SPLASH_SUBTITLE				"Have fun!"
-#define SPLASH_SUBTITLE_LEN			9
-#define SPLASH_SUBTITLE_FRAMES_PER_SHUFFLE	3
-#define SPLASH_SUBTITLE_FRAMES_PER_LETTER	8
-#define SPLASH_SUBTITLE_STARTSECOND		4
-#define SPLASH_SUBTITLE_XPOS			50	
-#define SPLASH_SUBTITLE_YPOS			35
-
-void
-splash(void)
-{
-	int	i;
-	int	itercnt;
-	int	domy_idx;
-	int	domy_reveal;
-	int	title_on;
-	int	flicker_dur;
-	int	second;
-	char	subtitle[SPLASH_SUBTITLE_LEN + 1];
-	int	startsub;
-	int	t;
-
-	clearcurframe();
-		
-	disp_set_mode(DISP_MODE_FPS, SPLASH_FPS);
-
-	flicker_dur = 0;
-	title_on = 0;
-
-	domy_idx = 0;
-	domy_reveal = DOMY_HEIGHT / 2;
-	itercnt = SPLASH_FPS * SPLASH_SECONDS;
-	startsub = SPLASH_SUBTITLE_STARTSECOND * SPLASH_FPS;
-	memset(subtitle, 0, SPLASH_SUBTITLE_LEN + 1);
-	for(i = 0; i < itercnt; ++i) {
-
-		second = i / SPLASH_FPS;
-
-		blt(curframe, domy_buf[domy_idx], sizeof(domy_buf[domy_idx]),
-		    DOMY_WIDTH, DOMY_XPOS, DOMY_YPOS);
-		
-		if(i % (SPLASH_FPS / DOMY_FPS) == 0) {
-			++domy_idx;
-			if((domy_idx % DOMY_FRAMECNT) == 0)
-				domy_idx = 0;	
-		}
-
-		if(domy_reveal > 0) {
-			domy_reveal -= 2;
-			if(domy_reveal < 0)
-				domy_reveal = 0;
-		}
-	
-		if(domy_reveal) {
-			drawbox(curframe, DOMY_XPOS, DOMY_YPOS,
-			    DOMY_XPOS + DOMY_WIDTH,
-			    DOMY_YPOS + domy_reveal,
-			    DISP_DRAW_OFF);
-
-			drawbox(curframe, DOMY_XPOS,
-			    DOMY_YPOS + DOMY_HEIGHT - domy_reveal,
-			    DOMY_XPOS + DOMY_WIDTH,
-			    DOMY_YPOS + DOMY_HEIGHT,
-			    DISP_DRAW_OFF);
-
-#if 0
-			drawbox(curframe, DOMY_XPOS,
-			    DOMY_YPOS + (DOMY_HEIGHT - domy_reveal),
-			    DOMY_XPOS + DOMY_WIDTH, DOMY_YPOS + DOMY_HEIGHT,
-			    DISP_DRAW_OFF);
-#endif
-		}
-
-		if(second == 1) {
-			/* One second after start, flicker the title
-	                 * (more off than on) */
-
-			if(flicker_dur <= 0) {
-				title_on = rand() % 2;
-				flicker_dur = rand() %
-				    (title_on ? FLICKER_SHORT : FLICKER_LONG);
-				
-			} else 
-				--flicker_dur;
-
-		} else
-		if(second == 2) {
-			/* Two seconds after start, flicker the title
-			 * (slightly more on than off) */
-			if(flicker_dur <= 0) {
-				title_on = rand() % 2;
-				flicker_dur = rand() %
-				    (title_on ? FLICKER_MED : FLICKER_SHORT);
-			} else 
-				--flicker_dur;
-
-		} else
-#if 0
-		if(second == 3) {
-			/* Two seconds after start, flicker the title
-			 * (more on than off */
-			if(flicker_dur <= 0) {
-				title_on = rand() % 2;
-				flicker_dur = rand() %
-				    (title_on ? FLICKER_LONG : FLICKER_SHORT);
-			} else 
-				--flicker_dur;
-
-		} else
-#endif
-		if(second >= 3) {
-			/* Three seconds after start, title should be on */ 
-			title_on = 1;
-		}
-
-		if(title_on) {
-			puttext(curframe, SPLASH_TITLE, &font_c64,
-			    SPLASH_TITLE_XPOS, SPLASH_TITLE_YPOS);
-		}
-
-		if(i >= startsub) {
-
-			if((i % SPLASH_SUBTITLE_FRAMES_PER_SHUFFLE)
-			    == 0) {
-				memset(subtitle, 0, SPLASH_SUBTITLE_LEN + 1);
-				for(t = 0; t < SPLASH_SUBTITLE_LEN; ++t) {
-					if((i - startsub) < ((t+2) *
-					  SPLASH_SUBTITLE_FRAMES_PER_LETTER)) {
-					subtitle[t] = (rand() %
-					    (font_picopixel.fo_ascii_max - 
-					    font_picopixel.fo_ascii_min)) +
-					    font_picopixel.fo_ascii_min;
-					} else
-						subtitle[t] =
-						    SPLASH_SUBTITLE[t]; 
-				}
-			}
-			puttext(curframe, subtitle, &font_picopixel,
-			    SPLASH_SUBTITLE_XPOS, SPLASH_SUBTITLE_YPOS);
-		}
-			
-		sleep_sendswapcurframe();
-	}
-}
 

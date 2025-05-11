@@ -1,6 +1,6 @@
 [
   {
-    "name": "ship_0_deg_nothrust",
+    "name": "ship_0_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -23,7 +23,7 @@
     ]
   },
   {
-    "name": "ship_15_deg_nothrust",
+    "name": "ship_15_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -46,7 +46,7 @@
     ]
   },
   {
-    "name": "ship_30_deg_nothrust",
+    "name": "ship_30_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -69,7 +69,7 @@
     ]
   },
   {
-    "name": "ship_45_deg_nothrust",
+    "name": "ship_45_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -92,7 +92,7 @@
     ]
   },
   {
-    "name": "ship_60_deg_nothrust",
+    "name": "ship_60_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -115,7 +115,7 @@
     ]
   },
   {
-    "name": "ship_75_deg_nothrust",
+    "name": "ship_75_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -138,7 +138,7 @@
     ]
   },
   {
-    "name": "ship_90_deg_nothrust",
+    "name": "ship_90_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -161,7 +161,7 @@
     ]
   },
   {
-    "name": "ship_105_deg_nothrust",
+    "name": "ship_105_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -184,7 +184,7 @@
     ]
   },
   {
-    "name": "ship_120_deg_nothrust",
+    "name": "ship_120_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -207,7 +207,7 @@
     ]
   },
   {
-    "name": "ship_135_deg_nothrust",
+    "name": "ship_135_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -230,7 +230,7 @@
     ]
   },
   {
-    "name": "ship_150_deg_nothrust",
+    "name": "ship_150_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -253,7 +253,7 @@
     ]
   },
   {
-    "name": "ship_165_deg_nothrust",
+    "name": "ship_165_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -276,7 +276,7 @@
     ]
   },
   {
-    "name": "ship_180_deg_nothrust",
+    "name": "ship_180_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -299,7 +299,7 @@
     ]
   },
   {
-    "name": "ship_195_deg_nothrust",
+    "name": "ship_195_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -322,7 +322,7 @@
     ]
   },
   {
-    "name": "ship_210_deg_nothrust",
+    "name": "ship_210_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -345,7 +345,7 @@
     ]
   },
   {
-    "name": "ship_225_deg_nothrust",
+    "name": "ship_225_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -368,7 +368,7 @@
     ]
   },
   {
-    "name": "ship_240_deg_nothrust",
+    "name": "ship_240_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -391,7 +391,7 @@
     ]
   },
   {
-    "name": "ship_255_deg_nothrust",
+    "name": "ship_255_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -414,7 +414,7 @@
     ]
   },
   {
-    "name": "ship_270_deg_nothrust",
+    "name": "ship_270_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -437,7 +437,7 @@
     ]
   },
   {
-    "name": "ship_285_deg_nothrust",
+    "name": "ship_285_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -460,7 +460,7 @@
     ]
   },
   {
-    "name": "ship_300_deg_nothrust",
+    "name": "ship_300_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -483,7 +483,7 @@
     ]
   },
   {
-    "name": "ship_315_deg_nothrust",
+    "name": "ship_315_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -506,7 +506,7 @@
     ]
   },
   {
-    "name": "ship_330_deg_nothrust",
+    "name": "ship_330_deg",
     "width": 16,
     "height": 16,
     "pixels": [
@@ -529,7 +529,7 @@
     ]
   },
   {
-    "name": "ship_345_deg_nothrust",
+    "name": "ship_345_deg",
     "width": 16,
     "height": 16,
     "pixels": [

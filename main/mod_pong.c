@@ -4,7 +4,6 @@
 #include "esp_log.h"
 #include "esp_rotary.h"
 #include "disp.h"
-#include "font.h"
 #include "font_c64.h"
 #include "font_pongscore.h"
 #include "ui_menu.h"
@@ -44,6 +43,16 @@ static uint8_t paddle[6] = { 0xff, 0xff, 0xff, 0x0f, 0x0f, 0x0f };
 static ui_menu_item_t	game_over_menu[] = {
 	{ "Play Again", MIT_RETURN_VAL, NULL, GO_MENU_VAL_PLAY_AGAIN, NULL },
 	{ "Exit", MIT_RETURN_VAL, NULL, GO_MENU_VAL_EXIT, NULL },
+	{ NULL }
+};
+
+
+#define PA_MENU_CONTINUE	1
+#define PA_MENU_ABORT		2
+
+static ui_menu_item_t	pause_menu[] = {
+	{ "Continue", MIT_RETURN_VAL, NULL, PA_MENU_CONTINUE, NULL },
+	{ "End Game", MIT_RETURN_VAL, NULL, PA_MENU_ABORT, NULL },
 	{ NULL }
 };
 
@@ -109,14 +118,12 @@ pong_newgame(int lplayercomp, int rplayercomp)
 	rconf[ROTARY_LEFT].rc_max = FRAME_HEIGHT - PADDLE_HEIGHT - 1;
 	rconf[ROTARY_LEFT].rc_start = (FRAME_HEIGHT - PADDLE_HEIGHT) / 2;
 	rconf[ROTARY_LEFT].rc_step_value = 2;
-	rconf[ROTARY_LEFT].rc_enable_speed_boost = 1;
 
 	rconf[ROTARY_RIGHT].rc_style = ROT_STYLE_BOUND;
 	rconf[ROTARY_RIGHT].rc_min = 0;
 	rconf[ROTARY_RIGHT].rc_max = FRAME_HEIGHT - PADDLE_HEIGHT - 1;
 	rconf[ROTARY_RIGHT].rc_start = (FRAME_HEIGHT - PADDLE_HEIGHT) / 2;
 	rconf[ROTARY_RIGHT].rc_step_value = 2;
-	rconf[ROTARY_RIGHT].rc_enable_speed_boost = 1;
 
 	ret = rotary_reconfig(rconf, ROTARY_CNT);	
 	if(ret != ESP_OK) {
@@ -257,9 +264,16 @@ pong_newgame(int lplayercomp, int rplayercomp)
 		if(pressedcnt > maxpressed)
 			maxpressed = pressedcnt;
 
-		/* Bail when both buttons were pressed *and* released */
-		if(pressedcnt == 0 && maxpressed == ROTARY_CNT)
-			goto end_label;
+		/* Show game menu when both buttons were pressed *and*
+		 * released */
+		if(pressedcnt == 0 && maxpressed == ROTARY_CNT) {
+			ret = ui_showmenu(pause_menu, 2, 8,
+			    MENU_CENTER_OVERLAY);
+			if(ret == PA_MENU_ABORT) {
+				goto end_label;
+			}
+			pressedcnt = maxpressed = 0;
+		}
 
 		/* Wait until time to send the next frame, then send
 		 * the frame. */
@@ -306,7 +320,7 @@ pong_newgame_h_c(void)
 void
 pong_newgame_c_c(void)
 {
-	pong_newgame(0, 0);
+	pong_newgame(1, 1);
 }
 
 
