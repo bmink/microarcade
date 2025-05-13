@@ -75,7 +75,7 @@ disp_set_mode(disp_mode_t newmode, int fps)
 }
 
 
-void
+static void
 config_gpio(int pinnr)
 {
         gpio_config_t   config;
@@ -93,7 +93,7 @@ config_gpio(int pinnr)
 }
 
 
-int
+static int
 sendspi(uint8_t *buf, uint32_t bufsiz)
 {
 	spi_transaction_t	transact;
@@ -147,14 +147,14 @@ next_iter:
 
 
 void
-clearcurframe(void)
+disp_clearcurframe(void)
 {
 	memset(curframe, 0, FRAMESIZ);
 }
 
 
 void
-sendswapcurframe(void)
+disp_sendswapcurframe(void)
 {
 	xSemaphoreTake(sendframe_mutex, portMAX_DELAY);
 
@@ -193,22 +193,23 @@ sendswapcurframe(void)
 
 end_label:
 	xSemaphoreGive(sendframe_mutex);
-	clearcurframe();
+	disp_clearcurframe();
 }
 
 
 void
-sleep_sendswapcurframe(void)
+disp_sleep_sendswapcurframe(void)
 {
 
 	vTaskDelayUntil(&disp_last_frame_at, disp_ticks_per_frame);
 
-	sendswapcurframe();
+	disp_sendswapcurframe();
 }
 
 
 void
-blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth, int xpos, int ypos)
+disp_blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth,
+	int xpos, int ypos)
 {
 	int	x;
 	int	y;
@@ -259,7 +260,7 @@ blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth, int xpos,
 
 
 void
-puttext(uint8_t *frame, const char *text, const font_t *fo, uint16_t x, uint16_t y)
+disp_puttext(uint8_t *frame, const char *text, const font_t *fo, uint16_t x, uint16_t y)
 {
 	const char 	*ch;
 	int		xpos;
@@ -284,8 +285,8 @@ puttext(uint8_t *frame, const char *text, const font_t *fo, uint16_t x, uint16_t
 		} else {
 			fch = &fo->fo_chars[*ch - fo->fo_ascii_min];
 			bitmap = fo->fo_bitmap + fch->fc_bitmap_offs;
-			blt(frame, bitmap, fch->fc_bitmap_siz, fch->fc_width,
-			    xpos, ypos);
+			disp_blt(frame, bitmap, fch->fc_bitmap_siz,
+			    fch->fc_width, xpos, ypos);
 			xpos += fch->fc_width;
 		}
 
@@ -297,7 +298,7 @@ puttext(uint8_t *frame, const char *text, const font_t *fo, uint16_t x, uint16_t
 #define DISP_FRAME_SENDER_LOOP_PRI	20
 #define DISP_FRAME_SENDER_LOOP_HEAPSIZ	4096
 
-uint8_t init_cmds[] = {
+static uint8_t init_cmds[] = {
 	0x20, 0x00,	/* Horizontal addressing mode */
 	//0xa5,		/* All pixels on */
 	//0xa7,		/* Inverse */
@@ -383,7 +384,7 @@ end_label:
 
 
 void
-scrollframe(uint8_t *frame, int xoffs, uint8_t *newframe, int left)
+disp_scrollframe(uint8_t *frame, int xoffs, uint8_t *newframe, int left)
 {
 	/* Scrolls frame xoffs pixels to the left or right. If newframe is
 	 * not NULL then the new space will be filled in from whatever is in
@@ -454,7 +455,8 @@ scrollframe(uint8_t *frame, int xoffs, uint8_t *newframe, int left)
 
 
 void
-drawbox(uint8_t *frame, int x1, int y1, int x2, int y2, disp_overlay_t overlay)
+disp_drawbox(uint8_t *frame, int x1, int y1, int x2, int y2,
+	disp_overlay_t overlay)
 {
 	int	x;
 	int	y;
@@ -512,7 +514,7 @@ drawbox(uint8_t *frame, int x1, int y1, int x2, int y2, disp_overlay_t overlay)
 #define TRANSFRAME_SCROLL_SPEED      8 /* Must be divisor of FRAME_WIDTH */
 
 void
-transframe(uint8_t *newframe, int left)
+disp_transframe(uint8_t *newframe, int left)
 {
 
 	disp_mode_t     savedmode;
@@ -523,7 +525,7 @@ transframe(uint8_t *newframe, int left)
 	savedmode = disp_mode;
 	savedfps = disp_fps;
 
-	nowframe = getframebuf();
+	nowframe = disp_getframebuf();
 	memcpy(nowframe, lastframe, FRAMESIZ);
 
 	disp_set_mode(DISP_MODE_FPS, TRANSFRAME_FPS);
@@ -532,13 +534,13 @@ transframe(uint8_t *newframe, int left)
 	    xscroll += TRANSFRAME_SCROLL_SPEED) {
 		memcpy(curframe, nowframe, FRAMESIZ);
 
-		scrollframe(curframe, xscroll, newframe, left);
+		disp_scrollframe(curframe, xscroll, newframe, left);
 
-		sleep_sendswapcurframe();
+		disp_sleep_sendswapcurframe();
 	}
 
         disp_set_mode(savedmode, savedfps);
-	releaseframebuf(nowframe);
+	disp_releaseframebuf(nowframe);
 }
 
 
@@ -554,7 +556,7 @@ static uint8_t	framebufs[8][FRAMESIZ];
 static uint8_t	framebufs_busy = 0;
 
 uint8_t *
-getframebuf(void)
+disp_getframebuf(void)
 {
 	int	i;
 	uint8_t	busybyte;
@@ -571,7 +573,7 @@ getframebuf(void)
 
 
 void
-releaseframebuf(uint8_t *buf)
+disp_releaseframebuf(uint8_t *buf)
 {
 	int	i;
 	uint8_t	busybyte;

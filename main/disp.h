@@ -3,7 +3,6 @@
 
 #include "font.h"
 
-
 #define FRAMESIZ        1024
 #define FRAME_WIDTH	128
 #define FRAME_HEIGHT	64
@@ -39,19 +38,19 @@ typedef enum disp_overlay {
 	DISP_DRAW_INVERT
 } disp_overlay_t;
 
-void puttext(uint8_t *, const char *, const font_t *, uint16_t, uint16_t);
-void sendswapcurframe(void);
-void sleep_sendswapcurframe(void);
-void clearcurframe(void);
-void blt(uint8_t *, uint8_t *, uint32_t, int8_t, int, int);
+void disp_puttext(uint8_t *, const char *, const font_t *, uint16_t, uint16_t);
+void disp_sendswapcurframe(void);
+void disp_sleep_sendswapcurframe(void);
+void disp_clearcurframe(void);
+void disp_blt(uint8_t *, uint8_t *, uint32_t, int8_t, int, int);
 
-void scrollframe(uint8_t *, int, uint8_t *, int);
+void disp_scrollframe(uint8_t *, int, uint8_t *, int);
 
-void drawbox(uint8_t *, int, int, int, int, disp_overlay_t);
+void disp_drawbox(uint8_t *, int, int, int, int, disp_overlay_t);
 
-void transframe(uint8_t *, int);
+void disp_transframe(uint8_t *, int);
 
-uint8_t *getframebuf(void);
-void releaseframebuf(uint8_t *);
+uint8_t *disp_getframebuf(void);
+void disp_releaseframebuf(uint8_t *);
 
 #endif

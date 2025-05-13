@@ -10,12 +10,12 @@
 #include "local_context.h"
 
 
-static const char *ltag = "asteroids";
+static const char *ltag = "spacerace";
 
 uint8_t	ship_buf[24][32];		/* See end of file for sprite data */
 uint8_t	ship_thrust_buf[24][32];
 
-#define ASTEROIDS_FPS	30
+#define SPACERACE_FPS	30
 
 #define SHIP_SPRITESIZ	32
 #define SHIP_WIDTH	16
@@ -27,7 +27,7 @@ uint8_t	ship_thrust_buf[24][32];
 
 
 static void
-asteroids_newgame()
+spacerace_newgame(void)
 {
 	rotary_config_t rconf[ROTARY_CNT];
 	int		ret;
@@ -57,7 +57,7 @@ asteroids_newgame()
 
         srand((unsigned int)xTaskGetTickCount());
 
-	disp_set_mode(DISP_MODE_FPS, ASTEROIDS_FPS);
+	disp_set_mode(DISP_MODE_FPS, SPACERACE_FPS);
 
 	shipxpos = FRAME_WIDTH / 2;
 	shipypos = FRAME_HEIGHT / 2;
@@ -102,7 +102,7 @@ asteroids_newgame()
 		if(shipypos > FRAME_HEIGHT - 1 + SHIP_HALFHEIGHT)
 			shipypos = SHIP_HALFHEIGHT;
 
-		blt(curframe, sbuf, SHIP_SPRITESIZ, SHIP_WIDTH,
+		disp_blt(curframe, sbuf, SHIP_SPRITESIZ, SHIP_WIDTH,
 		    shipxpos - SHIP_HALFWIDTH, shipypos - SHIP_HALFHEIGHT);
 
 		pressedcnt = 0;
@@ -121,7 +121,7 @@ asteroids_newgame()
 		if(pressedcnt == 0 && maxpressed == ROTARY_CNT)
 			goto end_label;
 
-		sleep_sendswapcurframe();
+		disp_sleep_sendswapcurframe();
 
 	}
 
@@ -133,19 +133,19 @@ end_label:
 
 
 void
-mod_asteroids_start(void)
+mod_spacerace_start(void)
 {
 	local_context_t savedlc;
 
-	ESP_LOGI(ltag, "Asteroids starting");	
+	ESP_LOGI(ltag, "Space Race starting");	
 
 	save_lcontext(&savedlc);
 
-	asteroids_newgame();
+	spacerace_newgame();
 
 	restore_lcontext(&savedlc);
 
-	ESP_LOGI(ltag, "Asteroids exiting");	
+	ESP_LOGI(ltag, "Space Race exiting");	
 }
 
 

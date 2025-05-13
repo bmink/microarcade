@@ -38,7 +38,7 @@ drawmenu(uint8_t *frame, ui_menu_item_t *mitem, int mitem_cnt, int mselidx,
                     mdispidx + i == mselidx ? '*' : ' ',
 		    mitem[mdispidx + i].mi_text);
 
-                puttext(frame, displin, font, xpos,
+                disp_puttext(frame, displin, font, xpos,
                     ypos + i * font->fo_line_height);
         }
 }
@@ -106,16 +106,16 @@ ui_showmenu(ui_menu_item_t *mitems, int maxlinecnt, int maxlinelen,
 		xpos = (FRAME_WIDTH - menuwidth) / 2;
 		ypos = (FRAME_HEIGHT - menuheight) / 2;
 		/* Save the current background */
-		bgframe = getframebuf();
+		bgframe = disp_getframebuf();
 		memcpy(bgframe, lastframe, FRAMESIZ);
 	} else
 	if(vmode == MENU_FULL_SCROLL) {
 		/* Draw menu into temp frame, for transition */
-		tempframe = getframebuf();
+		tempframe = disp_getframebuf();
 		drawmenu(tempframe, mitems, mitemscnt, mselidx,
 		    maxlinecnt, maxlinelen, &font_c64, 0, 0);
-		transframe(tempframe, 1);
-		releaseframebuf(tempframe);
+		disp_transframe(tempframe, 1);
+		disp_releaseframebuf(tempframe);
 		tempframe = NULL;
 	}
 
@@ -127,10 +127,10 @@ ui_showmenu(ui_menu_item_t *mitems, int maxlinecnt, int maxlinelen,
 			memcpy(curframe, bgframe, FRAMESIZ);
 
 			/* Draw a frame */
-			drawbox(curframe, xpos - 2, ypos - 2,
+			disp_drawbox(curframe, xpos - 2, ypos - 2,
 			    xpos + menuwidth + 2, ypos + menuheight + 2,
 			    DISP_DRAW_ON);
-			drawbox(curframe, xpos - 1, ypos - 1,
+			disp_drawbox(curframe, xpos - 1, ypos - 1,
 			    xpos + menuwidth + 1, ypos + menuheight + 1,
 			    DISP_DRAW_OFF);
 		}
@@ -138,7 +138,7 @@ ui_showmenu(ui_menu_item_t *mitems, int maxlinecnt, int maxlinelen,
 		drawmenu(curframe, mitems, mitemscnt, mselidx,
 		    maxlinecnt, maxlinelen, &font_c64, xpos, ypos);
 
-		sendswapcurframe();
+		disp_sendswapcurframe();
 
                 if(xQueueReceive(rotary_event_queue, &rev, portMAX_DELAY)
                     != pdPASS)
@@ -163,15 +163,15 @@ ui_showmenu(ui_menu_item_t *mitems, int maxlinecnt, int maxlinelen,
 
 				/* Save current displayed frame for
 				 * transitioning back */
-				tempframe = getframebuf();
+				tempframe = disp_getframebuf();
                                 memcpy(tempframe, lastframe, FRAMESIZ);
 
 				/* Call the function */
 				mitems[mselidx].mi_callfunc();
 
 				/* Transition back */
-                                transframe(tempframe, 0);
-				releaseframebuf(tempframe);
+                                disp_transframe(tempframe, 0);
+				disp_releaseframebuf(tempframe);
 				tempframe = NULL;
 				
 				break;
@@ -193,7 +193,7 @@ ui_showmenu(ui_menu_item_t *mitems, int maxlinecnt, int maxlinelen,
 return_label:
 
 	if(bgframe != NULL) {
-		releaseframebuf(bgframe);
+		disp_releaseframebuf(bgframe);
 		bgframe = NULL;
 	}	
 

@@ -52,23 +52,24 @@ mod_rotarytest_start(void)
 	while(1) {
 		val = rotary_get_value(ROTARY_LEFT);
 		snprintf(valstr, MAXVALSTRLEN, "%"PRIu32, val);
-		puttext(curframe, valstr, &font_c64, 0, 22);
-		drawbox(curframe, 0, 12, val, 19, DISP_DRAW_ON);
+		disp_puttext(curframe, valstr, &font_c64, 0, 22);
+		disp_drawbox(curframe, 0, 12, val, 19, DISP_DRAW_ON);
 
 		val = rotary_get_value(ROTARY_RIGHT);
 		snprintf(valstr, MAXVALSTRLEN, "%"PRIu32, val);
-		puttext(curframe, valstr, &font_c64,
+		disp_puttext(curframe, valstr, &font_c64,
 		    FRAME_WIDTH - 1 - strlen(valstr) * 8, 24);
-		drawbox(curframe, val, 33, FRAME_WIDTH - 1, 40, DISP_DRAW_ON);
+		disp_drawbox(curframe, val, 33, FRAME_WIDTH - 1, 40,
+		    DISP_DRAW_ON);
 
 		pressedcnt = 0;
 		if(rotary_get_button_state(ROTARY_LEFT) == BUTTON_PRESSED) {
-			puttext(curframe, PRESSTEXT, &font_c64, 0, 4);
+			disp_puttext(curframe, PRESSTEXT, &font_c64, 0, 4);
 			++pressedcnt;
 		}
 
 		if(rotary_get_button_state(ROTARY_RIGHT) == BUTTON_PRESSED) {
-			puttext(curframe, PRESSTEXT, &font_c64,
+			disp_puttext(curframe, PRESSTEXT, &font_c64,
 			    FRAME_WIDTH - 1 - strlen(PRESSTEXT) * 8, 42);
 			++pressedcnt;
 		}
@@ -76,7 +77,7 @@ mod_rotarytest_start(void)
 		if(pressedcnt > maxpressed)
 			maxpressed = pressedcnt;
 
-		sendswapcurframe();
+		disp_sendswapcurframe();
 
 		/* Bail when both buttons were pressed *and* released */
 		if(pressedcnt == 0 && maxpressed == ROTARY_CNT)

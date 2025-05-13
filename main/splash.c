@@ -51,7 +51,7 @@ splash(void)
 	int	startsub;
 	int	t;
 
-	clearcurframe();
+	disp_clearcurframe();
 		
 	disp_set_mode(DISP_MODE_FPS, SPLASH_FPS);
 
@@ -67,7 +67,8 @@ splash(void)
 
 		second = i / SPLASH_FPS;
 
-		blt(curframe, domy_buf[domy_idx], sizeof(domy_buf[domy_idx]),
+		disp_blt(curframe, domy_buf[domy_idx],
+		    sizeof(domy_buf[domy_idx]),
 		    DOMY_WIDTH, DOMY_XPOS, DOMY_YPOS);
 		
 		if(i % (SPLASH_FPS / DOMY_FPS) == 0) {
@@ -83,19 +84,19 @@ splash(void)
 		}
 	
 		if(domy_reveal) {
-			drawbox(curframe, DOMY_XPOS, DOMY_YPOS,
+			disp_drawbox(curframe, DOMY_XPOS, DOMY_YPOS,
 			    DOMY_XPOS + DOMY_WIDTH,
 			    DOMY_YPOS + domy_reveal,
 			    DISP_DRAW_OFF);
 
-			drawbox(curframe, DOMY_XPOS,
+			disp_drawbox(curframe, DOMY_XPOS,
 			    DOMY_YPOS + DOMY_HEIGHT - domy_reveal,
 			    DOMY_XPOS + DOMY_WIDTH,
 			    DOMY_YPOS + DOMY_HEIGHT,
 			    DISP_DRAW_OFF);
 
 #if 0
-			drawbox(curframe, DOMY_XPOS,
+			disp_drawbox(curframe, DOMY_XPOS,
 			    DOMY_YPOS + (DOMY_HEIGHT - domy_reveal),
 			    DOMY_XPOS + DOMY_WIDTH, DOMY_YPOS + DOMY_HEIGHT,
 			    DISP_DRAW_OFF);
@@ -145,7 +146,7 @@ splash(void)
 		}
 
 		if(title_on) {
-			puttext(curframe, SPLASH_TITLE, &font_c64,
+			disp_puttext(curframe, SPLASH_TITLE, &font_c64,
 			    SPLASH_TITLE_XPOS, SPLASH_TITLE_YPOS);
 		}
 
@@ -166,11 +167,11 @@ splash(void)
 						    SPLASH_SUBTITLE[t]; 
 				}
 			}
-			puttext(curframe, subtitle, &font_picopixel,
+			disp_puttext(curframe, subtitle, &font_picopixel,
 			    SPLASH_SUBTITLE_XPOS, SPLASH_SUBTITLE_YPOS);
 		}
 			
-		sleep_sendswapcurframe();
+		disp_sleep_sendswapcurframe();
 	}
 }
 

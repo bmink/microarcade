@@ -70,16 +70,17 @@ show_countdown()
 
 	disp_set_mode(DISP_MODE_ADHOC, 0);
 	for(i = 3; i > 0; --i) {
-		puttext(curframe, "Get Ready!", &font_c64,
+		disp_puttext(curframe, "Get Ready!", &font_c64,
 		    (FRAME_WIDTH - 10 * 8) / 2, 10);
-		sendswapcurframe();
+		disp_sendswapcurframe();
 		vTaskDelay(pdMS_TO_TICKS(100));
 
-		puttext(curframe, "Get Ready!", &font_c64,
+		disp_puttext(curframe, "Get Ready!", &font_c64,
 		    (FRAME_WIDTH - 10 * 8) / 2, 10);
 		snprintf(sec, SECLEN, "%d", i);
-		puttext(curframe, sec, &font_c64, (FRAME_WIDTH - 8) / 2, 28);
-		sendswapcurframe();
+		disp_puttext(curframe, sec, &font_c64,
+		    (FRAME_WIDTH - 8) / 2, 28);
+		disp_sendswapcurframe();
 		vTaskDelay(pdMS_TO_TICKS(900));
 	}
 
@@ -153,7 +154,7 @@ pong_newgame(int lplayercomp, int rplayercomp)
 			newserve = 0;
 		}
 
-		blt(curframe, middle_line, sizeof(middle_line),
+		disp_blt(curframe, middle_line, sizeof(middle_line),
 		    MIDDLE_LINE_WIDTH, MIDDLE_LINE_XPOS, 0);
 
 		if(!lplayercomp) {
@@ -170,7 +171,7 @@ pong_newgame(int lplayercomp, int rplayercomp)
 					lpaddleypos += 2;
 			}
 		}
-		blt(curframe, paddle, sizeof(paddle), PADDLE_WIDTH,
+		disp_blt(curframe, paddle, sizeof(paddle), PADDLE_WIDTH,
 		    PADDLE_XOFFS, lpaddleypos);
 
 		if(!rplayercomp) {
@@ -188,10 +189,10 @@ pong_newgame(int lplayercomp, int rplayercomp)
 					rpaddleypos += 2;
 			}
 		}
-		blt(curframe, paddle, sizeof(paddle), PADDLE_WIDTH,
+		disp_blt(curframe, paddle, sizeof(paddle), PADDLE_WIDTH,
 		    FRAME_WIDTH - 1 - PADDLE_XOFFS - PADDLE_WIDTH, rpaddleypos);
 
-		blt(curframe, ball, sizeof(ball), BALL_WIDTH,
+		disp_blt(curframe, ball, sizeof(ball), BALL_WIDTH,
 		    ballxpos, ballypos);
 
 		ballxpos += ballxvel;
@@ -235,11 +236,11 @@ pong_newgame(int lplayercomp, int rplayercomp)
 		}
 
 		snprintf(scoretxt, SCORETXT_MAXLEN, "%d", lscore);
-		puttext(curframe, scoretxt, &font_pongscore,
+		disp_puttext(curframe, scoretxt, &font_pongscore,
 		    MIDDLE_LINE_XPOS - 2 - strlen(scoretxt) * 5, 0);
 
 		snprintf(scoretxt, SCORETXT_MAXLEN, "%d", rscore);
-		puttext(curframe, scoretxt, &font_pongscore,
+		disp_puttext(curframe, scoretxt, &font_pongscore,
 		    MIDDLE_LINE_XPOS + MIDDLE_LINE_WIDTH + 2, 0);
 
 		ballypos += ballyvel;
@@ -277,7 +278,7 @@ pong_newgame(int lplayercomp, int rplayercomp)
 
 		/* Wait until time to send the next frame, then send
 		 * the frame. */
-		sleep_sendswapcurframe();
+		disp_sleep_sendswapcurframe();
 
 		if(lscore >= WINSCORE || rscore >= WINSCORE) {
 			ret = ui_showmenu(game_over_menu, 2, 10,
