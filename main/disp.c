@@ -211,6 +211,10 @@ void
 disp_blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth,
 	int xpos, int ypos)
 {
+	/*
+	 * Can safely be called with negative / out of bound xpos and ypos
+	 * (sprites will be cut off)
+	 */
 	int	x;
 	int	y;
 	int	ybase;	
@@ -224,13 +228,15 @@ disp_blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth,
 	 * divisible by 8, we have to do some bit shifting */
 		
 	ybase = ypos / 8;
+	if(ypos < 0)
+		--ybase;
 	ymod = ypos % 8;
 
 	spritecur = buf;
-	framecur = frame + 128 * ybase + xpos;
+	framecur = frame + FRAME_WIDTH * ybase + xpos;
 	for(i = 0, x = xpos, y = ybase; i < buflen + spritewidth; ++i) {
 
-		if(x < 128 && y < 8) {
+		if(x >= 0 && x < FRAME_WIDTH && y >= 0 && y < 8) {
 
 			if(i < buflen)
 				byte = *spritecur << ymod;
@@ -244,11 +250,10 @@ disp_blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth,
 		}
 
 		++x;
-//		if(i > 0 && ((i+1) % spritewidth) == 0) {
 		if(((i+1) % spritewidth) == 0) {
 			x = xpos;
 			++y;
-			framecur = frame + 128 * y + xpos;
+			framecur = frame + FRAME_WIDTH * y + xpos;
 		} else
 			++framecur;
 
