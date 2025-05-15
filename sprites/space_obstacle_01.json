@@ -4,22 +4,22 @@
     "width": 16,
     "height": 16,
     "pixels": [
-      "......XXXX......",
-      "....XXXXXXXX....",
-      "...XXXXXXXXXX...",
-      "..XXXXXXXX..XX..",
-      ".XXX.XXXXX..XXX.",
-      ".XX...XXXXXXXXX.",
-      "XXXX.XXXXXXXXXXX",
-      "XXXXXXXXXXXXXXXX",
-      "XXXXXXXXXXXX.XXX",
-      "XXXXXXXXXXX...XX",
-      ".XXXX.XXXXXX.XX.",
-      ".XXX...XXXXXXXX.",
-      "..XXX.XXXXXXXX..",
-      "...XXXXXXXXXX...",
-      "....XXXXXXXX....",
-      "......XXXX......"
+      "...XXXXX........",
+      "..XXX.XXX.......",
+      "XXXX...XXXX.XX..",
+      "X.XXXXXXXXXXXX..",
+      ".XX..XXXXX..XXX.",
+      "XX...XXXXXXXXXX.",
+      "XX.X.XXXXXX.X.XX",
+      "XXXXXXX.XXXXXXXX",
+      "XXXX.XX....X.XXX",
+      "XX.X.XXXXXX...XX",
+      ".XXXX.X.XXXX..X.",
+      "..XXX...XXX.XXX.",
+      "..XXX.XXXXXXXXX.",
+      "...XXXXXX.X.XXX.",
+      ".....XXXXXX.X...",
+      ".......XXXXXX..."
     ]
   }
 ]

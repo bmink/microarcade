@@ -37,7 +37,7 @@ int ballcnt = 10;
 
 void mod_rotarytest_start(void);
 void mod_pong_start(void);
-void mod_spacerace_start(void);
+void mod_asteroidbelt_start(void);
 
 
 #define MAIN_MENU_ITEMCNT	2
@@ -50,7 +50,7 @@ ui_menu_item_t	main_menu[] = {
 	{ "Pong", MIT_CALLFUNC, mod_pong_start, 0, NULL },
 	{ "Etch-a-sketch", MIT_NONE, NULL, 0, NULL },
 	{ "Clock", MIT_NONE, NULL, 0, NULL },
-	{ "Space Race", MIT_CALLFUNC, mod_spacerace_start, 0, NULL },
+	{ "Asteroid Belt", MIT_CALLFUNC, mod_asteroidbelt_start, 0, NULL },
 	{ "Lander", MIT_NONE, NULL, 0, NULL },
 	{ "Minesweeper", MIT_NONE, NULL, 0, NULL },
 	{ "Test1", MIT_NONE, NULL, 0, NULL },

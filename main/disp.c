@@ -228,9 +228,11 @@ disp_blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth,
 	 * divisible by 8, we have to do some bit shifting */
 		
 	ybase = ypos / 8;
-	if(ypos < 0)
-		--ybase;
 	ymod = ypos % 8;
+	if(ypos < 0) {
+		--ybase;
+		ymod = 8 + ymod;
+	}
 
 	spritecur = buf;
 	framecur = frame + FRAME_WIDTH * ybase + xpos;
