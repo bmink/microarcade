@@ -20,7 +20,7 @@ static uint8_t	obs_03_buf[96];
 static uint8_t	obs_04_buf[96];
 static uint8_t	obs_05_buf[72];
 
-static uint8_t	exhaust_buf[2] = { 0x18, 0x18 };
+static uint8_t	exhaust_buf[2][2] = { { 0x08, 0x00 }, { 0x00, 0x10 } };
 
 typedef struct ab_obstacle_type {
 	uint8_t		*at_buf;
@@ -79,7 +79,7 @@ typedef struct ab_obstacle {
 #define EXHAUST_HEIGHT		8
 #define EXHAUST_FRAMEINTERVAL	ABELT_FPS / 10	/* If throttle on, output
 						 * 10 per sec */		
-#define EXHAUST_VELFACTOR	1
+#define EXHAUST_VELFACTOR	2
 
 typedef struct ship_exhaust {
 	uint8_t	ae_ttl;	/* Time to live */
@@ -185,16 +185,16 @@ abelt_newgame(void)
 						break;
 				}
 				if(i < EXHAUST_MAXCNT) {
-					exh->ae_xvel =
+					exh->ae_xvel = //shipxvel +
 					    sin(rad) * EXHAUST_VELFACTOR;
-					exh->ae_yvel =
+					exh->ae_yvel = //shipyvel +
 					    cos(rad) * EXHAUST_VELFACTOR;
 					exh->ae_ttl = EXHAUST_MAXAGE;
 
 					exh->ae_xpos = shipxpos +
-					    exh->ae_xvel * SHIP_WIDTH / 2;
+					    exh->ae_xvel * 2;
 					exh->ae_ypos = shipypos +
-					    exh->ae_yvel * SHIP_HEIGHT / 2;
+					    exh->ae_yvel * 2;
 
 				}
 				newexhaust_ttl = EXHAUST_FRAMEINTERVAL;
@@ -251,7 +251,7 @@ abelt_newgame(void)
 			exh->ae_xpos += exh->ae_xvel;
 			exh->ae_ypos += exh->ae_yvel;
 
-			disp_blt(curframe, exhaust_buf, EXHAUST_BUFSIZ,
+			disp_blt(curframe, exhaust_buf[i%2], EXHAUST_BUFSIZ,
 			    EXHAUST_WIDTH,
 			    (int)exh->ae_xpos - (int)shipxpos + SHIP_DISP_XPOS +
 			    + SHIP_WIDTH / 2 - EXHAUST_WIDTH / 2,
@@ -313,69 +313,6 @@ mod_asteroidbelt_start(void)
 
 
 static uint8_t	ship_buf[20][8] = {
-
-
-	/* "Ship_0" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x18, 0x00, 0x18, 0xbc, 0xbc, 0x18, 0x00, 0x18},
-
-	/* "Ship_1" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x30, 0x00, 0x18, 0x3c, 0xbc, 0x98, 0x00, 0x0c},
-
-	/* "Ship_2" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x20, 0x40, 0x18, 0x3c, 0x3c, 0x98, 0x42, 0x04},
-
-	/* "Ship_3" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x40, 0x98, 0x3c, 0x3c, 0x19, 0x42, 0x20},
-
-	/* "Ship_4" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x98, 0xbc, 0x3d, 0x19, 0x00, 0x30},
-
-	/* "Ship_5" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x18, 0xbd, 0xbd, 0x18, 0x00, 0x18},
-
-	/* "Ship_6" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x19, 0x3d, 0xbc, 0x98, 0x00, 0x0c},
-
-	/* "Ship_7" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x02, 0x19, 0x3c, 0x3c, 0x98, 0x42, 0x04},
-
-	/* "Ship_8" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x04, 0x02, 0x18, 0x3c, 0x3c, 0x19, 0x42, 0x20},
-
-	/* "Ship_9" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x0c, 0x00, 0x18, 0x3c, 0x3d, 0x19, 0x00, 0x30},
-
-	/* "Ship_10" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x18, 0x00, 0x18, 0x3d, 0x3d, 0x18, 0x00, 0x18},
-
-	/* "Ship_11" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x30, 0x00, 0x19, 0x3d, 0x3c, 0x18, 0x00, 0x0c},
-
-	/* "Ship_12" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x20, 0x42, 0x19, 0x3c, 0x3c, 0x18, 0x02, 0x04},
-
-	/* "Ship_13" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x04, 0x42, 0x98, 0x3c, 0x3c, 0x19, 0x02, 0x00},
-
-	/* "Ship_14" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x0c, 0x00, 0x98, 0xbc, 0x3d, 0x19, 0x00, 0x00},
-
-	/* "Ship_15" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x18, 0x00, 0x18, 0xbd, 0xbd, 0x18, 0x00, 0x00},
-
-	/* "Ship_16" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x30, 0x00, 0x19, 0x3d, 0xbc, 0x98, 0x00, 0x00},
-
-	/* "Ship_17" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x20, 0x42, 0x19, 0x3c, 0x3c, 0x98, 0x40, 0x00},
-
-	/* "Ship_18" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x04, 0x42, 0x98, 0x3c, 0x3c, 0x18, 0x40, 0x20},
-
-	/* "Ship_19" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x0c, 0x00, 0x98, 0xbc, 0x3c, 0x18, 0x00, 0x30}
-
-#if 0
 	/* "Ship_0" (8x8): vertical mapping, 64 pixels, 8 bytes */
 	{  0x00, 0x00, 0x18, 0xbc, 0xbc, 0x18, 0x00, 0x00},
 
@@ -435,8 +372,6 @@ static uint8_t	ship_buf[20][8] = {
 
 	/* "Ship_19" (8x8): vertical mapping, 64 pixels, 8 bytes */
 	{  0x00, 0x00, 0x98, 0xbc, 0x3c, 0x18, 0x00, 0x00}
-
-#endif
 };
 
 
