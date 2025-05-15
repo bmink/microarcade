@@ -1,0 +1,33 @@
+[
+  {
+    "name": "Space_Obstacle_02_fliph",
+    "width": 32,
+    "height": 24,
+    "pixels": [
+      ".................XXXXXX.........",
+      ".................XXXX.XX........",
+      "..............XXX.X.XX.XX.......",
+      ".............XXXXXXXX.XXXX......",
+      "............XX.XX..XXX.XXXXX....",
+      "............XXXX.X..XXXXX.X.X...",
+      "...........XX.XX.X..XX.XXXX.XX..",
+      "........XXX.XXXX.X.X.XX.X..XX.X.",
+      ".......X.XX.XX.XXXXXXXXXX...X.X.",
+      "......X..XX.X.XXXXXX..XX.XXXXXX.",
+      "....XXXXXXXX.XX.XX.X..X.XXX.XXX.",
+      "...XXXXXXXXXX...XXXX.XXXXXX.XX..",
+      "....XX.X.XX.X.XXXX.XXXX.X.XXXXX.",
+      "....XXX...XX.XX..XXXXXXXXXXXXXXX",
+      ".XXXX.X...XXX.XX..XX.XXXXXX.XXX.",
+      ".X.XXXX..XXXX..X.XXX.XXXX.XXXX..",
+      "X.XX.XXXXXXXX.X..X.XXXX.XXXX.XX.",
+      ".X.XXX.XX....X.XX..X.XX.XXXXXXX.",
+      ".XXXX.X..X...X.XXXXXX.XXX..XXXX.",
+      "...X.XX.XX..XXXXXXX...X.X.XX.XXX",
+      "....X.XX.XXXXX...XXXXX.XXX..XX..",
+      ".....XXXXX.X.XX.X.XX..XX.XXXX...",
+      ".........XXXXXXXX.XXXXX....X....",
+      "...........XXXX.XXX............."
+    ]
+  }
+]

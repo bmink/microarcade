@@ -1,0 +1,41 @@
+[
+  {
+    "name": "Space_Obstacle_02_fliph",
+    "width": 32,
+    "height": 32,
+    "pixels": [
+      "..........XXX......XX...........",
+      ".........XXXXXXXX..X.XXX........",
+      "..XX...XXX...XXXXXX..XX.XXX.....",
+      ".XXXX..XXXX.XXXXXXX..XXXXXXX....",
+      ".X.XXXX.XXXXXXX.XXXXXX.XXXXXX...",
+      "X.X.XXXX...XXXXXXXXXXX..XXX.XX..",
+      "XXXX.XXX..XXX....XXX.XX.XXX.XX..",
+      "XXXX.X.X..XXX.XXXXXXX.XX..XXX.X.",
+      "..XXXX.XXXX.XXXXXXXXXXXX.XX...XX",
+      ".XX..X.XXX.XXXXXXXXXXXXXXXX...XX",
+      "..XX.XXXXXXXXXX.X.XXXXXXXX....XX",
+      "...XXXXXXXXXXXXX..XXXXXXXX...XXX",
+      "...XXXX..XX.XX.XXXXXXXXXX....XX.",
+      ".....XXXXXXXXX..XX...XXX...XXX..",
+      "....XXXXXXXXXX..XX...X.XX.XXX...",
+      "..XXX.XXXXXXXX.XXXXXXX.XXXXX.X..",
+      "..XXXXXXX.XXXXX.XXXX.XXXXXXXXX..",
+      ".XXXXXXXXXXXXXXXXXXXXXXXXXXX.XX.",
+      ".XXX.XX.XXXXXXXX..XXXXXX.X..XX..",
+      "X.XX.XXXXX.XX.X.XX.XXXXX.XX.XX..",
+      ".XXXXXXXX.XXXXXXXXXX.XXX..X..XX.",
+      "...XXXXX.X.XXXX...XXXXXX.XXXXX..",
+      "..XXXXXXXX.X.X.XX.XXX..XXXXXX...",
+      "..XXXXXXXXX.XX..XXXXX....XXX....",
+      "...X.X.X.XX.XXXXX.XXXX.X..XX....",
+      "..XXXXXXXXXXXXXXXXXXXXXX........",
+      "..XXXXXX..XXXXXXXXXX.XXXX.......",
+      ".XXXXXXXXXXXXXX..XXXXX..........",
+      "..XXXXXXX.XXXXXXXXXX............",
+      ".XXXXX.X..XX....XX..............",
+      "..XX....XXXXX...................",
+      "................................"
+    ]
+  }
+]

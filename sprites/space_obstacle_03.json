@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Space_Obstacle_03",
+    "width": 32,
+    "height": 24,
+    "pixels": [
+      "...........XXXX.XXX.............",
+      ".........XXXXXXXX.XXXXX....X....",
+      ".....XXXXX.X.XX.X.XX..XX.XXXX...",
+      "....X.XX.XXXXX...XXXXX.XXX..XX..",
+      "...X.XX.XX..XXXXXXX...X.X.XX.XXX",
+      ".XXXX.X..X...X.XXXXXX.XXX..XXXX.",
+      ".X.XXX.XX....X.XX..X.XX.XXXXXXX.",
+      "X.XX.XXXXXXXX.X..X.XXXX.XXXX.XX.",
+      ".X.XXXX..XXXX..X.XXX.XXXX.XXXX..",
+      ".XXXX.X...XXX.XX..XX.XXXXXX.XXX.",
+      "....XXX...XX.XX..XXXXXXXXXXXXXXX",
+      "....XX.X.XX.X.XXXX.XXXX.X.XXXXX.",
+      "...XXXXXXXXXX...XXXX.XXXXXX.XX..",
+      "....XXXXXXXX.XX.XX.X..X.XXX.XXX.",
+      "......X..XX.X.XXXXXX..XX.XXXXXX.",
+      ".......X.XX.XX.XXXXXXXXXX...X.X.",
+      "........XXX.XXXX.X.X.XX.X..XX.X.",
+      "...........XX.XX.X..XX.XXXX.XX..",
+      "............XXXX.X..XXXXX.X.X...",
+      "............XX.XX..XXX.XXXXX....",
+      ".............XXXXXXXX.XXXX......",
+      "..............XXX.X.XX.XX.......",
+      ".................XXXX.XX........",
+      ".................XXXXXX........."
+    ]
+  }
+]
+
