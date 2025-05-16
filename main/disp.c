@@ -34,7 +34,7 @@ static int disp_fps;
 static int disp_ticks_per_frame;
 static TickType_t disp_last_frame_at;
 
-int dropped_framecnt = 0;
+int disp_dropped_framecnt = 0;
 
 #define FRAMEBUDGET_RAVG_CNT	1000
 /* Circular buffer of tick budget (ie. the remaining ticks we had left over
@@ -164,7 +164,7 @@ disp_sendswapcurframe(void)
 			/* We are in fps mode. Frame has to be dropped */
 
 			ESP_LOGE(ltag, "Dropping frame!\n");
-			++dropped_framecnt;
+			++disp_dropped_framecnt;
 			goto end_label;
 
 		} else { /* DISP_MODE_ADHOC */

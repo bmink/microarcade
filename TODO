@@ -5,5 +5,6 @@ in the start function to reduce static memory usage
 * in fps mode, keep track of dropped frames and compute running avg of budget
 * figure out why onboard LED sometimes on. also blink on error. Need to rewire a rotary? (apparently this LED is driven by gpio48 and uses ws2812 protocol.
 implement?)
-* deal with coordinate under/overflow in blt() (ie. properly cut off sprites
-and don't allow buffer over/underflow). Also allow negative coordinates and just cut off sprites as needed
+* Add a function for querying disp_dropped_framecnt. Does the access have
+to be protected using the mutex? (I think probably not, as long as the app
+is singlethreaded. But verify this)

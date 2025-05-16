@@ -91,6 +91,40 @@ own thread as you screw them in for the first time. Do not overtighten.
 
 ## Notes on the firmware
 
+## The graphics library
+
+Generally, applications are expected to draw into `curframe` using the
+provided functions such as `disp_blt()` (for bliting sprites),
+`disp_drawbox()` or `disp_puttext()`. Then they are expected to tell the
+library to send this frame to the display.
+
+Two modes for sending frames to the display are supported:
+
+* In "ad-hoc mode", there is no timing requirement. The application draws and
+sends frames as needed, e.g. then an event occurs. Many seconds can elapse
+between screen updates. An example for ad-hoc mode is a menu. The display
+doesn't need to be refreshed until and unless the user scrolls the selection
+(or selects an item). A screen update is sent with `disp_sendswapcurframe()`.
+This function will enqueue `curframe` the application has drawn into for
+transfer to the display, swap the `curframe` pointer for a new frame buffer,
+and immediately return. The previous `curframe` will be transferred to the
+display by a separate task, using DMA, so the application can immediately
+return to drawing a new frame.
+
+* In "FPS mode", the application first lets the display library know at what
+rate the display should be refreshed. This will prompt the library to do some
+internal time calculations to set up FPS mode. The application then is
+responsible for redrawing the screen and enqueue it for sending at the rate
+it previously specified. It does do by calling `sleep_sendswapcurframe()`.
+This function is identical to `sendswapcurframe()`, but first it delays
+however long it has to to keep the FPS rate. In other words, as long as the
+application is faster than the FPS rate, it can use `sleep_sendswapcurframe()`
+to keep in syng with the FPS rate. Should the application take too much
+time in drawing a frame, the next call of `sleep_sendswapcurframe()` will
+drop the frame and make a note of this. (The internal variable
+`disp_dropped_framecnt` can be queried for the number of times a frame
+was dropped.)
+
 
 ## The local context
 
