@@ -66,7 +66,7 @@ gpios / 3.3V / common as appropriate.
 
 There is no battery in the current design, just a USB-C socket. I always have a
 power source around so I didn't find it necessary to add a dedicated battery,
-and this allows the encloser to be extra small and lightweight.  Additionally
+and this allows the enclosure to be extra small and lightweight.  Additionally,
 having the USB socket on the enclosure go directy into the esp32's USB input
 allows me to easily flash new code without needing to open the enclosure or
 adding additional sockets. That said, a rechargeable battery could be added
@@ -78,7 +78,8 @@ quite easily.
 ![](enclosure/microarcade_enclosure.png)
 
 The enclosure is 3D printed to fit the specified parts exactly.
-Fusion 360 and BambuLab and STL files are provided in the enclosure folder.
+Fusion 360, BambuLab Slicer and STL files are provided in the
+[enclosure folder](enclosure/).
 
 Tips:
 * I print my enclosures using plain matte PLA filament
