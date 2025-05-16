@@ -100,7 +100,35 @@ library to send this frame to the display.
 
 Two modes for sending frames to the display are supported:
 
-* In "ad-hoc mode", there is no timing requirement. The application draws and
+### Ad-hoc mode
+
+```C
+
+#define EVENTSTRMAX	16
+
+char eventstr[EVENTSTRMAX];
+int eventcnt = 0;
+
+disp_set_mode(DISP_MODE_ADHOC, 0);
+
+while(1) {
+
+	/* Draw into curframe */
+	snprintf(evenstr, EVENTSTRMAX, "%d events", eventcnt);
+	disp_puttext(curframe, eventstr, &myfont, 0, 0);
+
+	/* Send to display */
+	disp_sendswapcurframe();
+
+	/* Wait until next event (however long) */
+	wait_for_event();
+
+	++eventcnt;	
+}
+
+```
+
+In "ad-hoc mode", there is no timing requirement. The application draws and
 sends frames as needed, e.g. then an event occurs. Many seconds can elapse
 between screen updates. An example for ad-hoc mode is a menu. The display
 doesn't need to be refreshed until and unless the user scrolls the selection
@@ -111,7 +139,37 @@ and immediately return. The previous `curframe` will be transferred to the
 display by a separate task, using DMA, so the application can immediately
 return to drawing a new frame.
 
-* In "FPS mode", the application first lets the display library know at what
+
+### FPS mode
+
+```C
+
+#define BAR_MAXWIDTH 100
+
+int barwidth = 0;
+int inc = 1;
+
+disp_set_mode(DISP_MODE_FPS, 15);	/* 15 frames per second */
+
+while(1) {
+
+	/* Draw into curframe */
+	disp_drawbox(curframe, 0, 0, barwidth, 10, DISP_DRAW_ON);
+
+	barwidth += inc;
+	if(barwidth == BAR_MAXWIDTH)
+		inc = -1
+	else
+	if(barwidth == 0)
+		inc = 1;
+
+	/* Sleep until it's time to send the next frame, then send to display */
+	disp_sleep_sendswapcurframe();
+}
+
+```
+
+In "FPS mode", the application first lets the display library know at what
 rate the display should be refreshed. This will prompt the library to do some
 internal time calculations to set up FPS mode. The application then is
 responsible for redrawing the screen and enqueue it for sending at the rate
