@@ -22,14 +22,15 @@ The two main types of peripherals the MCU interfaces with is the OLED display
 and the rotary encoders. (There is also a separate clock module but that is
 very simple to interface with using i2c).
 
-Rotary encoders are quite simple devices, but it is a surprisingly challenging
+* Rotary encoders are quite simple devices, but it is a surprisingly challenging
 (and interesting) problem to build a driver for them that stands up to the
 rigors of gaming. Most drivers out there are actually not that accurate in
-terms of counting and will lose steps if you turn them fast as well as display
-other problems due to bounce. For more information on this, check out
-[esp_rotary]() which is my rotary encoder driver for esp-idf.
+terms of counting and will lose steps if you turn them fast as well as are
+prone to other problems as well. For more information on this, check out
+[esp_rotary](https://github.com/bmink/esp_rotary) which is my rotary encoder
+driver for esp-idf.
 
-In the case of the display, I looked into several of the existing popular
+* In the case of the display, I looked into several of the existing popular
 graphics display libraries (eg. `Adafruit-GFX`, `U8g2`) but was surprised by
 how inefficiently implemented they are and yet how complex their APIs are
 (these two problems go hand in hand). If you instrument their code to log the
@@ -51,6 +52,11 @@ code).
 * 1x [Panel-mount USB C socket](https://a.co/d/aPcbE0N) - use "Screw Nut Mount Type"
 * 1x [4-pin right-angle USB C cable](https://a.co/d/cTP49Ir)
 
+The reason there's a separate clock module is that I wanted `microarcade` to be
+able to function as a desktop clock so needed something that can keep time when
+the device is turned off.
+
+
 ## Wiring diagram
 
 ![](wiring/microarcade_wiring.png)
@@ -65,10 +71,6 @@ having the USB socket on the enclosure go directy into the esp32's USB input
 allows me to easily flash new code without needing to open the enclosure or
 adding additional sockets. That said, a rechargeable battery could be added
 quite easily.
-
-The reason there's a separate clock module is that I wanted `microarcade` to be
-able to function as a desktop clock so needed something that can keep time when
-the device is turned off.
 
 
 ## Enclosure
