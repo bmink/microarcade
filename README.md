@@ -31,17 +31,15 @@ prone to other problems as well. For more information on this, check out
 driver for esp-idf.
 
 * In the case of the display, I looked into several of the existing popular
-graphics display code (eg. `Adafruit-GFX`, `U8g2`) but was surprised by
-how inefficiently implemented they are and yet how cumbersome their APIs are
-(these two problems go hand in hand). If you instrument their code to log the
-commands they send to the display, you will be able to observe this: for
-example, data transfers are unnecessarily broken up into several transactions
-and many more commands are sent that would actually be necessary. All in
-all, many more bytes are sent to the display than necessary and that many
-times per second so it all would add up and reduce our per-frame CPU budget
-during gameplay. These libraries appear to be a bit cobbled together and copy+pastey and therefore not appropriate for what I wanted here (small & fast
-code).
-
+graphics display code (eg. `Adafruit-GFX`, `U8g2`) but was surprised by how
+inefficiently implemented they are and yet how cumbersome their APIs are. If
+you instrument their code to log the commands they send to the display, you
+will be able to observe this: for example, data transfers are unnecessarily
+broken up into several transactions and many more commands are sent that would
+actually be necessary. All in all, many more bytes are transferred over the
+wire than would be necessary and that many times per second... it all would
+add up and reduce per-frame CPU budget during gameplay. So I decided to
+write my own efficient routines.
 
 ## Parts list
 
@@ -53,8 +51,8 @@ code).
 * 1x [4-pin right-angle USB C cable](https://a.co/d/cTP49Ir)
 
 The reason there's a separate clock module is that I wanted `microarcade` to be
-able to function as a desktop clock so needed something that can keep time when
-the device is turned off.
+able to function as a desktop clock as well so I needed something that can
+keep time when the device has no power.
 
 
 ## Wiring diagram
@@ -95,10 +93,10 @@ own thread as you screw them in for the first time. Do not overtighten.
 
 ### Framebuffers
 
-Once a module's start function is called, the module is given complete control
-over the console, including the display. 
+Once a module's start function is called by the main menu, the module is given
+complete control over the console, including the display, until it returns.
 
-Graphics are done by drawing into a framebuffer, ie. memory buffer that
+Graphics are done by drawing into a framebuffer, ie. a memory buffer that
 represents the contents of the screen. In the case of `microarcade`, the
 display is 128x64 pixels, and each pixel can be represented by one bit
 (pixel on/off) so the framebuffer is 1024 bytes large (128 * 64 / 8). Once the
@@ -108,25 +106,25 @@ wait for it to complete but can go about doing other things. More detail
 on all this later...
 
 To elimiate the need for data conversions when transmitting to the display,
-in-memory framebuffer bit configuration follows that of the SSD1309 display
+in-memory framebuffer bit mapping follows that of the SSD1309 display
 controller, and is *vertical*. This means that one byte of framebuffer data
 represents a one-pixel-wide by 8-pixels-tall section of the screen.
 In most cases, applications don't have to worry about this since they won't
 set bits in the framebuffer direcly, but instead use one of the drawing
-functions provided.
+functions provided, which all support vertical bit mapping.
 
 ### Sprites, tilemaps, fonts/text, shapes
 
-Efficient support for all these are supported by `microarcade`.
+Efficient support for all these are supported, see `disp.h`.
 
 `disp_blt()` is one of the most core functions in the library and is used not
-only to blit sprites into a frame, but also called by most other graphics
-functions. Whatever the application needs to draw that is not supporte by
-built-in functions -- if it can do so by using one or a few `disp_blt()` calls,
-it will be fast.
+only to blit (overlay) sprites into a frame, but also called by most other
+graphics functions. Whatever the application needs to draw that is not
+supported by built-in functions -- if it can do so by using one or a few
+`disp_blt()` calls, it will be fast.
 
-Sprite buffer data has to be vertically bitmapped. Check out
-my CLI sprite & font editor/animator
+Like the framebuffers, Sprite buffer data has to be vertically bitmapped. Check
+out my CLI sprite & font editor/animator
 [sprited](https://github.com/bmink/sprited) for creating your sprites. It can
 also dump sprite data in C code syntax (horizontally or vertically mapped),
 which can be copy and pasted straight into source files.
@@ -145,13 +143,13 @@ allocations and potential heap fragmentation, a frame buffer pool is provided.
 Applications can request a framebuffer using `disp_getframebuf()`.
 Framebuffers are released by calling `disp_releaseframebuf()`. The size of the
 framebuffer pool is limited (8 by default), so applications should take care
-not to request & hold more than they absolutely need and they must have
-released all all framebuffers they held when they exit.
+not to request & hold more than they absolutely need and they must
+released all framebuffers before they exit.
 
 
 ## Display modes
 
-Generally, applications are expected to draw into the frame buffer pointed to
+As mentioned, applications are expected to draw into the frame buffer pointed to
 by `curframe` using the provided drawing, sprite bliting and text printing
 functions. Then they are expected to tell the library to send this frame to
 the display.
@@ -244,7 +242,7 @@ was dropped.)
 
 ## The local context
 
-microarcade is a collection of menus and modules. Menus will call modules
+`microarcade` is a collection of menus and modules. Menus will call modules
 (games) and modules themselves will display their own menus at times.
 Whenever such a switch occurs, the callee will very likely change things like
 display mode, display refresh rate (fps) and rotary configuration.
