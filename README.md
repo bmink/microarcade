@@ -1,24 +1,24 @@
 # microarcade
 
 A tiny gaming console with 1-bit graphics and rotary encoders. It is built
-from cheap components and the firmware was written completely from scratch (no
+from cheap components and the firmware is written completely from scratch (no
 3rd party libraries).
 
 ## Why rotary encoders?
 
 They're my favorite input devices for small builds. They take up very little
 space yet allow you to do just about any type of input. I have long wondered
-whether it would be possible to build a small console that uses two
+whether it would be fun to build and play a small console that uses two
 rotary encoders for its input, supporting both single- and multi-user play.
-(Verdict: you can!)
+(Verdict: it is!)
 
 ## Why no 3rd party libraries?
 
-First off, we are not talking about bare metal. `microarcade` is based on
+To be clear, we are not talking about bare metal. `microarcade` is based on
 ESP32 and so is built using `esp-idf`, and runs on `FreeRTOS`. I'm only
-talking about drivers to talk to the connected peripherals...
+talking about code to talk to the connected peripherals...
 
-The two main types of peripherals the MCU interfaces with is the OLED display
+The two main types of peripherals the MCU interfaces with are the OLED display
 and the rotary encoders. (There is also a separate clock module but that is
 very simple to interface with using i2c).
 
@@ -31,8 +31,8 @@ prone to other problems as well. For more information on this, check out
 driver for esp-idf.
 
 * In the case of the display, I looked into several of the existing popular
-graphics display libraries (eg. `Adafruit-GFX`, `U8g2`) but was surprised by
-how inefficiently implemented they are and yet how complex their APIs are
+graphics display code (eg. `Adafruit-GFX`, `U8g2`) but was surprised by
+how inefficiently implemented they are and yet how cumbersome their APIs are
 (these two problems go hand in hand). If you instrument their code to log the
 commands they send to the display, you will be able to observe this: for
 example, data transfers are unnecessarily broken up into several transactions
@@ -45,7 +45,7 @@ code).
 
 ## Parts list
 
-* 1x [ESP-32-S3](https://a.co/d/aNbB3Xg)
+* 1x [ESP32-S3](https://a.co/d/aNbB3Xg)
 * 1x [OLED](https://a.co/d/eaWpX4F) -- use the SPI version
 * 2x [Rotary encoder](https://a.co/d/dhtsNsp)
 * 1x [RTC](https://a.co/d/ggVVWnh)
@@ -69,7 +69,7 @@ power source around so I didn't find it necessary to add a dedicated battery,
 and this allows the enclosure to be extra small and lightweight.  Additionally,
 having the USB socket on the enclosure go directy into the esp32's USB input
 allows me to easily flash new code without needing to open the enclosure or
-adding additional sockets. That said, a rechargeable battery could be added
+to add additional sockets. That said, a rechargeable battery could be added
 quite easily.
 
 
@@ -78,7 +78,7 @@ quite easily.
 ![](enclosure/microarcade_enclosure.png)
 
 The enclosure is 3D printed to fit the specified parts exactly.
-Fusion 360, BambuLab Slicer and STL files are provided in the
+Fusion 360, BambuLab and STL files are provided in the
 [enclosure folder](enclosure/).
 
 Tips:
@@ -93,10 +93,10 @@ own thread as you screw them in for the first time. Do not overtighten.
 
 ## The graphics library
 
-Generally, applications are expected to draw into `curframe` using the
-provided functions such as `disp_blt()` (for bliting sprites),
-`disp_drawbox()` or `disp_puttext()`. Then they are expected to tell the
-library to send this frame to the display.
+Generally, applications are expected to draw into the frame buffer pointed to
+by `curframe` using the provided functions such as `disp_blt()` (for bliting
+sprites), `disp_drawbox()` or `disp_puttext()`. Then they are expected to tell
+the library to send this frame to the display.
 
 Two modes for sending frames to the display are supported:
 
@@ -158,7 +158,7 @@ while(1) {
 
 	barwidth += inc;
 	if(barwidth == BAR_MAXWIDTH)
-		inc = -1
+		inc = -1;
 	else
 	if(barwidth == 0)
 		inc = 1;
@@ -172,12 +172,12 @@ while(1) {
 In "FPS mode", the application first lets the display library know at what
 rate the display should be refreshed. This will prompt the library to do some
 internal time calculations to set up FPS mode. The application then is
-responsible for redrawing the screen and enqueue it for sending at the rate
-it previously specified. It does do by calling `sleep_sendswapcurframe()`.
+responsible for redrawing the screen and enqueuing it for sending at the rate
+it previously specified. It does so by calling `sleep_sendswapcurframe()`.
 This function is identical to `sendswapcurframe()`, but first it delays
 however long it has to to keep the FPS rate. In other words, as long as the
 application is faster than the FPS rate, it can use `sleep_sendswapcurframe()`
-to keep in syng with the FPS rate. Should the application take too much
+to keep in sync with the FPS rate. Should the application take too much
 time in drawing a frame, the next call of `sleep_sendswapcurframe()` will
 drop the frame and make a note of this. (The internal variable
 `disp_dropped_framecnt` can be queried for the number of times a frame
@@ -192,5 +192,6 @@ Whenever such a switch occurs, the callee will very likely change things like
 display mode, display refresh rate (fps) and rotary configuration.
 
 It such cases it is up to the callee to restore all settings to the way it
-found them when it was called. The local_context struct and associated
-functions are provided to help with easily backing up / restoring context.
+found them when it was called. The `local_context_t` struct and the
+associated functions `save_lcontext()` and `restore_lcontext()` are provided
+to make this task easy.

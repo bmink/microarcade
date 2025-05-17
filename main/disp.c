@@ -480,13 +480,13 @@ disp_drawbox(uint8_t *frame, int x1, int y1, int x2, int y2,
 	
 	/* Create a 1xFRAME_HEIGHT pixel column representing the box */
 	memset(column, 0, 8);
-	for(y = y1; y < y2; ++y) {
+	for(y = y1; y <= y2; ++y) {
 		ybase = y / 8;
 		ymod = y % 8;
 		column[ybase] |= 0x1 << ymod;
 	}
 
-	boxwidth = x2 - x1;
+	boxwidth = x2 - x1 + 1;
 
 	for(line = 0; line < 8; ++line) {
 		byte = column[line];

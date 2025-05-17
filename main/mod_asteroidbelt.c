@@ -6,6 +6,7 @@
 #include "esp_rotary.h"
 #include "disp.h"
 #include "font.h"
+#include "font_picopixel.h"
 #include "ui_menu.h"
 #include "local_context.h"
 
@@ -21,6 +22,10 @@ static uint8_t	obs_04_buf[96];
 static uint8_t	obs_05_buf[72];
 
 static uint8_t	exhaust_buf[2][2] = { { 0x08, 0x00 }, { 0x00, 0x10 } };
+
+static uint8_t	station_buf[2][96];
+
+static uint8_t radar_buf[8][22];
 
 typedef struct ab_obstacle_type {
 	uint8_t		*at_buf;
@@ -40,7 +45,8 @@ ab_obstacle_type_t	ab_obstacle_type[OBS_TYPE_CNT] ={
 };
 
 
-#define OBS_CNT	512
+#define OBS_CNT	150
+//#define OBS_CNT	350
 
 typedef struct ab_obstacle {
 	ab_obstacle_type_t *ao_type;
@@ -69,8 +75,8 @@ typedef struct ab_obstacle {
 #define SHIP_DISP_XPOS	(FRAME_WIDTH - SHIP_WIDTH) / 2
 #define SHIP_DISP_YPOS	(FRAME_HEIGHT - SHIP_HEIGHT) / 2
 
-#define OBS_MINDIST_X	20
-#define OBS_MINDIST_Y	20
+#define OBS_MINDIST_X	35
+#define OBS_MINDIST_Y	35
 
 #define EXHAUST_MAXCNT		6
 #define EXHAUST_MAXAGE		ABELT_FPS / 2	/* Half a second */		
@@ -88,6 +94,24 @@ typedef struct ship_exhaust {
 	float	ae_xvel;
 	float	ae_yvel;
 } ship_exhaust_t;
+
+
+#define FUEL_MAXLEVEL		1000
+#define FUEL_GAUGE_WIDTH	40
+#define FUEL_GAUGE_HEIGHT	8 
+#define FUEL_FRAMES_PER_REGEN	30
+#define FUEL_GAUGESTRMAX	20
+
+#define RADAR_BUFSIZ	22
+#define RADAR_WIDTH	11
+#define RADAR_HEIGHT	9
+
+#define STATION_BUFSIZ		96
+#define STATION_WIDTH		32
+#define STATION_HEIGHT		24
+#define STATION_FLIP_FRAMECNT	ABELT_FPS / 2	/* Switch station sprites
+						 * twice per second */
+
 
 
 static void
@@ -111,13 +135,29 @@ abelt_newgame(void)
 	ship_exhaust_t	exhaust[EXHAUST_MAXCNT];
 	ship_exhaust_t	*exh;
 	int		newexhaust_ttl;
+	int		fuel_level;
+	char		fuel_gaugestr[FUEL_GAUGESTRMAX];
+	int		fuel_gauge_xpos;
+	int		fuel_gauge_ypos;
+	int		fuel_perc;
+	int		radar_xpos;
+	int		radar_ypos;
+	int		station_xpos;
+	int		station_ypos;
+	int		station_flipcnt;
+	int		station_xdiff;
+	int		station_ydiff;
+	uint8_t		*stbuf;
+	float		radar_rad;
+	int		radar_angle;
+	int		radar_bufidx;
 	
 	obstacle = NULL;
 
 	memset(rconf, 0, sizeof(rotary_config_t) * ROTARY_CNT);
 	rconf[ROTARY_LEFT].rc_style = ROT_STYLE_WRAPAROUND;
 	rconf[ROTARY_LEFT].rc_min = 0;
-	rconf[ROTARY_LEFT].rc_max = 345;	
+	rconf[ROTARY_LEFT].rc_max = 342;	
 	rconf[ROTARY_LEFT].rc_step_value = 18;
 	rconf[ROTARY_LEFT].rc_start = 90;
 
@@ -138,12 +178,25 @@ abelt_newgame(void)
 	shipxpos = SHIP_STARTXPOS;
 	shipypos = SHIP_STARTYPOS;
 	shipxvel = shipyvel = 0;
+
+	station_xpos = UNIVERSE_WIDTH - FRAME_WIDTH - rand() % FRAME_WIDTH;
+	station_ypos = UNIVERSE_HEIGHT / 2 - rand() % FRAME_HEIGHT -
+	    FRAME_HEIGHT / 2;
+	station_flipcnt = 0;
+	stbuf = station_buf[0];
+
 	maxpressed = 0;
 	ship_angle = 0;
+	fuel_level = FUEL_MAXLEVEL;
+	radar_xpos = (FRAME_WIDTH - FUEL_GAUGE_WIDTH - RADAR_WIDTH) / 2;
+	radar_ypos = FRAME_HEIGHT - RADAR_HEIGHT;
+	fuel_gauge_xpos = radar_xpos + RADAR_WIDTH - 1;
+	fuel_gauge_ypos = FRAME_HEIGHT - FUEL_GAUGE_HEIGHT - 1;
 
 	for(i = 0; i < OBS_CNT; ++i) {
 		obs = &obstacle[i];
 		obs->ao_type = &ab_obstacle_type[rand() % OBS_TYPE_CNT];
+#if 0
 		while(1) {
 			obs->ao_xpos = rand() % UNIVERSE_WIDTH;
 			if(abs((int)shipxpos - obs->ao_xpos) >= OBS_MINDIST_X)
@@ -153,6 +206,22 @@ abelt_newgame(void)
 			obs->ao_ypos = rand() % UNIVERSE_HEIGHT;
 			if(abs((int)shipypos - obs->ao_ypos) >= OBS_MINDIST_Y)
 				break;
+		}	
+#endif
+
+		while(1) {
+			obs->ao_xpos = rand() % UNIVERSE_WIDTH;
+			obs->ao_ypos = rand() % UNIVERSE_HEIGHT;
+
+			if(abs((int)shipxpos - obs->ao_xpos) < OBS_MINDIST_X &&
+			    abs((int)shipypos - obs->ao_ypos) < OBS_MINDIST_Y)
+				continue;
+
+			if(abs(station_xpos - obs->ao_xpos) < OBS_MINDIST_X && 
+			    abs(station_ypos - obs->ao_ypos) < OBS_MINDIST_Y)
+				continue;
+
+			break;
 		}	
 	}
 
@@ -168,8 +237,9 @@ abelt_newgame(void)
 			ship_angle = 0;
 
 		sbuf = ship_buf[ship_angle / 18];
-		if(rotary_get_button_state(ROTARY_RIGHT) == BUTTON_PRESSED || 
-		    rotary_get_button_state(ROTARY_LEFT) == BUTTON_PRESSED){
+		if((rotary_get_button_state(ROTARY_RIGHT) == BUTTON_PRESSED || 
+		    rotary_get_button_state(ROTARY_LEFT) == BUTTON_PRESSED) &&
+		    fuel_level > 0){
 			rad = ship_angle * M_PI / 180;
 			shipabsvel = cos(rad) * shipyvel;
 			if(shipabsvel < SHIP_MAXABSVEL) {
@@ -185,20 +255,22 @@ abelt_newgame(void)
 						break;
 				}
 				if(i < EXHAUST_MAXCNT) {
-					exh->ae_xvel = //shipxvel +
+					exh->ae_xvel = shipxvel +
 					    sin(rad) * EXHAUST_VELFACTOR;
-					exh->ae_yvel = //shipyvel +
+					exh->ae_yvel = shipyvel +
 					    cos(rad) * EXHAUST_VELFACTOR;
 					exh->ae_ttl = EXHAUST_MAXAGE;
 
 					exh->ae_xpos = shipxpos +
-					    exh->ae_xvel * 2;
+					    sin(rad) * SHIP_WIDTH / 2;
 					exh->ae_ypos = shipypos +
-					    exh->ae_yvel * 2;
+					    cos(rad) * SHIP_HEIGHT / 2;
 
 				}
 				newexhaust_ttl = EXHAUST_FRAMEINTERVAL;
 			}
+
+			--fuel_level;
 		}
 
 		shipxpos += shipxvel;
@@ -240,6 +312,29 @@ abelt_newgame(void)
 			    obs->ao_ypos - (int)shipypos + SHIP_DISP_YPOS);
 		}
 
+		
+		if(station_xpos > (int)shipxpos - FRAME_WIDTH &&
+		    station_xpos < (int)shipxpos + FRAME_WIDTH &&
+		    station_ypos > (int)shipypos - FRAME_HEIGHT &&
+		    station_ypos < (int)shipypos + FRAME_HEIGHT) {
+	
+			/* Draw station */
+
+			disp_blt(curframe, stbuf, STATION_BUFSIZ,
+			    STATION_WIDTH, 
+			    station_xpos - (int)shipxpos + SHIP_DISP_XPOS,
+			    station_ypos - (int)shipypos + SHIP_DISP_YPOS);
+		}
+
+		++station_flipcnt;
+		if(station_flipcnt >= STATION_FLIP_FRAMECNT) {
+			if(stbuf == station_buf[0])
+				stbuf = station_buf[1];
+			else
+				stbuf = station_buf[0];
+
+			station_flipcnt = 0;
+		}
 
 		disp_blt(curframe, sbuf, 8, 8,
 		    SHIP_DISP_XPOS, SHIP_DISP_YPOS);
@@ -263,6 +358,61 @@ abelt_newgame(void)
 
 		if(newexhaust_ttl)
 			--newexhaust_ttl;
+
+		/* Draw fuel gauge */
+		fuel_perc = fuel_level * 100 / FUEL_MAXLEVEL;
+		disp_drawbox(curframe, fuel_gauge_xpos, fuel_gauge_ypos,
+		    fuel_gauge_xpos + FUEL_GAUGE_WIDTH, FRAME_HEIGHT - 1,
+		    DISP_DRAW_ON);
+		disp_drawbox(curframe, fuel_gauge_xpos + 1, fuel_gauge_ypos + 1,
+		    fuel_gauge_xpos + FUEL_GAUGE_WIDTH - 1, FRAME_HEIGHT - 2,
+		    DISP_DRAW_OFF);
+		snprintf(fuel_gaugestr, FUEL_GAUGESTRMAX, "FUEL: %d%%",
+		    fuel_perc);
+		disp_puttext(curframe, fuel_gaugestr, &font_picopixel,
+		    fuel_gauge_xpos + 2, fuel_gauge_ypos + 2);
+#if 0
+		disp_drawbox(curframe, fuel_gauge_xpos + 1, fuel_gauge_ypos + 1,
+		    fuel_gauge_xpos + 1 +
+		    (fuel_perc * (FUEL_GAUGE_WIDTH - 2) / 100),
+		    FRAME_HEIGHT - 2, DISP_DRAW_INVERT);
+#endif
+
+
+		station_xdiff = station_xpos + STATION_WIDTH / 2 -
+                    ((int)shipxpos + SHIP_WIDTH / 2);
+		station_ydiff = station_ypos + STATION_HEIGHT / 2 -
+                    ((int)shipypos + SHIP_HEIGHT / 2);
+
+		/* Quick and dirty way to avoid division by zero etc */
+		if(abs(station_ydiff) == 0)
+			station_ydiff = 1;
+		if(abs(station_xdiff) == 0)
+			station_xdiff = 1;
+			
+		radar_rad = atan(abs(station_xdiff) / abs(station_ydiff));
+		radar_angle = (int)(radar_rad / M_PI * 180);
+		radar_bufidx = (radar_angle + 22) / 45;
+		if(station_xdiff >= 0) {
+			if(station_ydiff >= 0)
+				radar_bufidx = 4 + radar_bufidx;
+			else
+				radar_bufidx = (8 - radar_bufidx) % 8;
+		} else {
+			if(station_ydiff >= 0)
+				radar_bufidx = 4 - radar_bufidx;
+			else
+				radar_bufidx = radar_bufidx;
+		}
+
+		disp_drawbox(curframe, radar_xpos, radar_ypos,
+		    radar_xpos + RADAR_WIDTH - 1, FRAME_HEIGHT - 1,
+		    DISP_DRAW_OFF);
+		
+
+		disp_blt(curframe, radar_buf[radar_bufidx],
+		    RADAR_BUFSIZ, RADAR_WIDTH, radar_xpos, radar_ypos);
+
 
 		pressedcnt = 0;
 		if(rotary_get_button_state(ROTARY_LEFT) == BUTTON_PRESSED) {
@@ -395,11 +545,11 @@ static uint8_t	obs_01_buf[128] = {
 	   0x00, 0x12, 0x3f, 0x6d, 0xe3, 0xfb, 0xef, 0x43,
 	   0x7f, 0x3f, 0x3f, 0xee, 0xff, 0xf7, 0x9b, 0xdb,
 	   0x56, 0x3f, 0xf7, 0xbf, 0x7f, 0x97, 0xee, 0xdf,
-	   0xfb, 0xff, 0xff, 0xf3, 0xff, 0xdf, 0x16, 0x08,
+	   0xfb, 0xff, 0xff, 0xf3, 0xff, 0xdf, 0x96, 0x00,
 	   0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x04,
 	   0x07, 0x06, 0x0f, 0x0b, 0x1f, 0x1f, 0x3e, 0x37,
-	   0x17, 0x1f, 0x1f, 0x5f, 0x7e, 0x7f, 0x4b, 0x5a,
-	   0x3f, 0x1e, 0x3f, 0x3e, 0x7f, 0x7e, 0x28, 0x00 };
+	   0x17, 0x1f, 0x1f, 0x5f, 0xfe, 0xff, 0xcb, 0x5a,
+	   0x3f, 0x1e, 0x3f, 0x2e, 0x27, 0x3b, 0x1f, 0x0c };
 
 static uint8_t	obs_02_buf[128] = {
     /* "Space_Obstacle_02_fliph" (32x32): vertical mapping,
@@ -412,15 +562,14 @@ static uint8_t	obs_02_buf[128] = {
 	   0xef, 0xff, 0xfd, 0xee, 0xff, 0xff, 0x0f, 0x9b,
 	   0xf7, 0xf3, 0x9f, 0x9f, 0x9f, 0xff, 0x3f, 0xff,
 	   0xde, 0x8f, 0xc3, 0xe0, 0x60, 0xb8, 0x1f, 0x0f,
-	   0x08, 0x16, 0xdf, 0xff, 0xf3, 0xff, 0xff, 0xfb,
+	   0x00, 0x96, 0xdf, 0xff, 0xf3, 0xff, 0xff, 0xfb,
 	   0xdf, 0xee, 0x97, 0x7f, 0xbf, 0xf7, 0x3f, 0x56,
 	   0xdb, 0x9b, 0xf7, 0xff, 0xee, 0x3f, 0x3f, 0x7f,
 	   0x43, 0xef, 0xfb, 0xe3, 0x6d, 0x3f, 0x12, 0x00,
-	   0x00, 0x28, 0x7e, 0x7f, 0x3e, 0x3f, 0x1e, 0x3f,
-	   0x5a, 0x4b, 0x7f, 0x7e, 0x5f, 0x1f, 0x1f, 0x17,
+	   0x0c, 0x1f, 0x3b, 0x27, 0x2e, 0x3f, 0x1e, 0x3f,
+	   0x5a, 0xcb, 0xff, 0xfe, 0x5f, 0x1f, 0x1f, 0x17,
 	   0x37, 0x3e, 0x1f, 0x1f, 0x0b, 0x0f, 0x06, 0x07,
 	   0x04, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00 };
-
 
 static uint8_t	obs_03_buf[96] = {
     /* "Space_Obstacle_03" (32x24): vertical mapping, 768 pixels, 96 bytes */
@@ -466,3 +615,79 @@ static uint8_t	obs_05_buf[72] = {
 	   0x00, 0x06, 0x25, 0x7d, 0x3b, 0x37, 0x71, 0x6f,
 	   0x5f, 0xfd, 0xee, 0xe7, 0xfd, 0xd7, 0xd9, 0x79,
 	   0x7e, 0x1f, 0x3b, 0x3f, 0x12, 0x1f, 0x0e, 0x04 };
+
+
+static uint8_t	station_buf[2][96] = {
+
+	/* "Space Station 01" (32x24): vertical mapping, 768 pixels, 96 bytes */
+	{  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	   0x00, 0x00, 0x00, 0xe0, 0x30, 0xf8, 0x18, 0x0c,
+	   0x0c, 0x18, 0xf8, 0x30, 0xe0, 0x00, 0x00, 0x00,
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	   0x00, 0x1f, 0x11, 0x11, 0x11, 0x1f, 0x11, 0x11,
+	   0x11, 0x1f, 0x04, 0xff, 0x93, 0xbb, 0xfe, 0xbe,
+	   0xfa, 0xfe, 0xbb, 0x93, 0xff, 0x04, 0x1f, 0x11,
+	   0x11, 0x11, 0x1f, 0x11, 0x11, 0x11, 0x1f, 0x00,
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x2b, 0x36,
+	   0x36, 0x2b, 0x3e, 0x00, 0x00, 0x00, 0x00, 0x00,
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+
+	/* "Space Station 02" (32x24): vertical mapping, 768 pixels, 96 bytes */
+	{  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	   0x00, 0x00, 0x00, 0xe0, 0x30, 0xf8, 0x18, 0x0c,
+	   0x0c, 0x18, 0xf8, 0x30, 0xe0, 0x00, 0x00, 0x00,
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	   0x00, 0x1f, 0x11, 0x11, 0x11, 0x1f, 0x11, 0x11,
+	   0x11, 0x1f, 0x04, 0xff, 0x93, 0xbb, 0xfe, 0xfa,
+	   0xbe, 0xfe, 0xbb, 0x93, 0xff, 0x04, 0x1f, 0x11,
+	   0x11, 0x11, 0x1f, 0x11, 0x11, 0x11, 0x1f, 0x00,
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x2b, 0x36,
+	   0x36, 0x2b, 0x3e, 0x00, 0x00, 0x00, 0x00, 0x00,
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+};
+
+
+static uint8_t radar_buf[8][22] = {
+
+	/* "Radar_0_deg" (11x16): vertical mapping, 176 pixels, 22 bytes */
+	{  0xff, 0x01, 0x01, 0x01, 0x05, 0x13, 0x05, 0x01,
+	   0x01, 0x01, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
+	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+
+	/* "Radar_45_deg" (11x16): vertical mapping, 176 pixels, 22 bytes */
+	{  0xff, 0x11, 0x29, 0x01, 0x05, 0x13, 0x05, 0x01,
+	   0x01, 0x01, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
+	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+
+	/* "Radar_160_deg" (11x16): vertical mapping, 176 pixels, 22 bytes */
+	{  0xff, 0x11, 0x29, 0x01, 0x01, 0x11, 0x01, 0x01,
+	   0x01, 0x01, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
+	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+
+	/* "Radar_135_deg" (11x16): vertical mapping, 176 pixels, 22 bytes */
+	{  0xff, 0x11, 0x29, 0x01, 0x41, 0x91, 0x41, 0x01,
+	   0x01, 0x01, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
+	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+
+	/* "Radar_1160_deg" (11x16): vertical mapping, 176 pixels, 22 bytes */
+	{  0xff, 0x01, 0x01, 0x01, 0x41, 0x91, 0x41, 0x01,
+	   0x01, 0x01, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
+	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+
+	/* "Radar_225_deg" (11x16): vertical mapping, 176 pixels, 22 bytes */
+	{  0xff, 0x01, 0x01, 0x01, 0x41, 0x91, 0x41, 0x01,
+	   0x29, 0x11, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
+	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+
+	/* "Radar_270_deg" (11x16): vertical mapping, 176 pixels, 22 bytes */
+	{  0xff, 0x01, 0x01, 0x01, 0x01, 0x11, 0x01, 0x01,
+	   0x29, 0x11, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
+	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+
+	/* "Radar_315_deg" (11x16): vertical mapping, 176 pixels, 22 bytes */
+	{  0xff, 0x01, 0x01, 0x01, 0x05, 0x13, 0x05, 0x01,
+	   0x29, 0x11, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
+	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
+};

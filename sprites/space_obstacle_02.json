@@ -23,19 +23,19 @@
       "..XXXXXXXXX.XXXX.XXXXX.XXXXXXX..",
       ".XX.XXXXXXXXXXXXXXXXXXXXXXXXXXX.",
       "..XX..X.XXXXXX..XXXXXXXX.XX.XXX.",
-      "..XX.XX.XXXXX.XX.X.XX.XXXXX.XX.X",
+      "..XX.XX.XXXXX.XX.X.XX.XXXXX.XX..",
       ".XX..X..XXX.XXXXXXXXXX.XXXXXXXX.",
       "..XXXXX.XXXXXX...XXXX.X.XXXXX...",
       "...XXXXXX..XXX.XX.X.X.XXXXXXXX..",
-      "....XXX....XXXXX..XX.XXXXXXXXX..",
-      "....XX..X.XXXX.XXXXX.XX.X.X.X...",
-      "........XXXXXXXXXXXXXXXXXXXXXX..",
-      ".......XXXX.XXXXXXXXXX..XXXXXX..",
-      "..........XXXXX..XXXXXXXXXXXXXX.",
-      "............XXXXXXXXXX.XXXXXXX..",
-      "..............XX....XX..X.XXXXX.",
-      "...................XXXXX....XX..",
-      "................................"
+      "....XXX....XXXXX..XX.XXXXXXXXXX.",
+      "....XX..X.XXXX.XXXXX.XX.X.X.XXX.",
+      "........XXXXXXXXXXXXXXXXXXXXXXX.",
+      ".......XXXX.XXXXXXXXXX..XXXXX.XX",
+      "..........XXXXX..XXXXXXXXXXX.XXX",
+      "............XXXXXXXXXX.XXXX..XX.",
+      "..............XX....XX..X.XXXX..",
+      "...................XXXXX........",
+      "....................XXX........."
     ]
   }
 ]

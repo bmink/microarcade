@@ -8,3 +8,4 @@ implement?)
 * Add a function for querying disp_dropped_framecnt. Does the access have
 to be protected using the mutex? (I think probably not, as long as the app
 is singlethreaded. But verify this)
+* Choose a license
