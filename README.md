@@ -89,7 +89,7 @@ Tips:
 own thread as you screw them in for the first time. Do not overtighten.
 
 
-## Notes on the firmware
+# Notes on the firmware
 
 ## The graphics library
 
@@ -101,7 +101,7 @@ over the console, including the display.
 Graphics are done by drawing into a framebuffer, ie. memory buffer that
 represents the contents of the screen. In the case of `microarcade`, the
 display is 128x64 pixels, and each pixel can be represented by one bit
-(pixel on/off) so the framebuffer is 1024 bytes large (1024 * 68 / 8). Once the
+(pixel on/off) so the framebuffer is 1024 bytes large (128 * 64 / 8). Once the
 app finishes drawing the frame, it sends it to the display (more on this
 below).
 
