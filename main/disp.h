@@ -43,6 +43,7 @@ void disp_sendswapcurframe(void);
 void disp_sleep_sendswapcurframe(void);
 void disp_clearcurframe(void);
 void disp_blt(uint8_t *, uint8_t *, uint32_t, int8_t, int, int);
+int disp_contactblt(uint8_t *, uint8_t *, uint32_t, int8_t, int, int);
 
 void disp_scrollframe(uint8_t *, int, uint8_t *, int);
 

@@ -246,7 +246,8 @@ disp_blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth,
 				byte = 0;
 
 			if(i >= spritewidth)
-				byte |= *(spritecur - spritewidth) >> (8 - ymod);
+				byte |= *(spritecur - spritewidth) >>
+				    (8 - ymod);
 
 			*framecur |= byte;
 		}
@@ -263,6 +264,69 @@ disp_blt(uint8_t *frame, uint8_t *buf, uint32_t buflen, int8_t spritewidth,
 	}
 
 
+}
+
+
+int
+disp_contactblt(uint8_t *frame, uint8_t *buf, uint32_t buflen,
+	int8_t spritewidth, int xpos, int ypos)
+{
+	/*
+	 * Same as disp_blt(), except doesn't overlay the sprite, but checks
+	 * for contact with any previously drawn pixels in the frame.
+	 * Returns 0 if the sprite does not contact anything, or nonzero
+	 * if it does.
+	 */
+	int	x;
+	int	y;
+	int	ybase;	
+	int	ymod;	
+	uint8_t	*framecur;
+	uint8_t	*spritecur;
+	int	i;
+	uint8_t	byte;
+
+	/* Screen buffer is vertically mapped so for y positions that aren't
+	 * divisible by 8, we have to do some bit shifting */
+		
+	ybase = ypos / 8;
+	ymod = ypos % 8;
+	if(ypos < 0) {
+		--ybase;
+		ymod = 8 + ymod;
+	}
+
+	spritecur = buf;
+	framecur = frame + FRAME_WIDTH * ybase + xpos;
+	for(i = 0, x = xpos, y = ybase; i < buflen + spritewidth; ++i) {
+
+		if(x >= 0 && x < FRAME_WIDTH && y >= 0 && y < 8) {
+
+			if(i < buflen)
+				byte = *spritecur << ymod;
+			else	/* Overflow row */
+				byte = 0;
+
+			if(i >= spritewidth)
+				byte |= *(spritecur - spritewidth) >>
+				    (8 - ymod);
+
+			if(*framecur & byte)
+				return 1;
+		}
+
+		++x;
+		if(((i+1) % spritewidth) == 0) {
+			x = xpos;
+			++y;
+			framecur = frame + FRAME_WIDTH * y + xpos;
+		} else
+			++framecur;
+
+		++spritecur;
+	}
+
+	return 0;
 }
 
 

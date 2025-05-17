@@ -89,7 +89,7 @@ Tips:
 own thread as you screw them in for the first time. Do not overtighten.
 
 
-# Notes on the firmware
+# Notes on the firmware / Writing modules (applications)
 
 ## The graphics library
 
@@ -102,13 +102,15 @@ Graphics are done by drawing into a framebuffer, ie. memory buffer that
 represents the contents of the screen. In the case of `microarcade`, the
 display is 128x64 pixels, and each pixel can be represented by one bit
 (pixel on/off) so the framebuffer is 1024 bytes large (128 * 64 / 8). Once the
-app finishes drawing the frame, it sends it to the display (more on this
-below).
+app finishes drawing the frame, it instructs the display library to send
+it to the display. Data is sent using DMA so the application doesn't have to
+wait for it to complete but can go about doing other things. More detail
+on all this later...
 
 To elimiate the need for data conversions when transmitting to the display,
 in-memory framebuffer bit configuration follows that of the SSD1309 display
 controller, and is *vertical*. This means that one byte of framebuffer data
-represents a one pixel wide and 8 pixels tall section of the screen.
+represents a one-pixel-wide by 8-pixels-tall section of the screen.
 In most cases, applications don't have to worry about this since they won't
 set bits in the framebuffer direcly, but instead use one of the drawing
 functions provided.
@@ -137,22 +139,22 @@ For example, it may want to draw a static background into a framebuffer once
 and then keep copying the contents of this framebuffer into the main
 framebuffer before overlaying sprites.
 
-A 1K framebuffer generally is too large to be put on the stack so these
-copies will have to be allocated on the heap. To reduce the number of memory
-allocations and potential fragmentation, a frame buffer pool is provided.
-Applications can request a framebuffer using ` disp_getframebuf()`.
+A 1K framebuffer generally is too large to be put on the stack so these copies
+will have to be allocated on the heap. To reduce the number of memory
+allocations and potential heap fragmentation, a frame buffer pool is provided.
+Applications can request a framebuffer using `disp_getframebuf()`.
 Framebuffers are released by calling `disp_releaseframebuf()`. The size of the
 framebuffer pool is limited (8 by default), so applications should take care
-not to use more than they absolutely need and they must have released all
-all framebuffers they held when they exit.
+not to request & hold more than they absolutely need and they must have
+released all all framebuffers they held when they exit.
 
 
 ## Display modes
 
 Generally, applications are expected to draw into the frame buffer pointed to
-by `curframe` using the provided functions such as `disp_blt()` (for bliting
-sprites), `disp_drawbox()` or `disp_puttext()`. Then they are expected to tell
-the library to send this frame to the display.
+by `curframe` using the provided drawing, sprite bliting and text printing
+functions. Then they are expected to tell the library to send this frame to
+the display.
 
 Two modes for sending frames to the display are supported:
 

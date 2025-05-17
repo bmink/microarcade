@@ -27,6 +27,8 @@ static uint8_t	station_buf[2][96];
 
 static uint8_t radar_buf[8][22];
 
+static uint8_t debris_buf[10][8];
+
 typedef struct ab_obstacle_type {
 	uint8_t		*at_buf;
 	uint16_t	at_bufsiz;
@@ -87,13 +89,14 @@ typedef struct ab_obstacle {
 						 * 10 per sec */		
 #define EXHAUST_VELFACTOR	2
 
-typedef struct ship_exhaust {
-	uint8_t	ae_ttl;	/* Time to live */
-	float	ae_xpos;
-	float	ae_ypos;
-	float	ae_xvel;
-	float	ae_yvel;
-} ship_exhaust_t;
+typedef struct position {
+	uint8_t	ap_ttl;		/* Time to live */
+	uint8_t	*ap_buf;	/* Sprite buf */
+	float	ap_xpos;
+	float	ap_ypos;
+	float	ap_xvel;
+	float	ap_yvel;
+} position_t;
 
 
 #define FUEL_MAXLEVEL		1000
@@ -112,7 +115,18 @@ typedef struct ship_exhaust {
 #define STATION_FLIP_FRAMECNT	ABELT_FPS / 2	/* Switch station sprites
 						 * twice per second */
 
+#define DEBRIS_SPRITECNT	10
+#define DEBRIS_BUFSIZ		8
+#define DEBRIS_WIDTH		8	
+#define DEBRIS_HEIGHT		8
+#define DEBRIS_MAXCNT		5
 
+#define EXPLODE_FRAMECNT	ABELT_FPS * 3	/* Explosions lasts 3 sec */
+#define EXPLODE_SPRITECHFRCNT	100 / (1000 / ABELT_FPS)
+						 /* Change debris sprite
+						  * every ~80 ms */
+#define	EXPLODE_DEBRISVELMINABS		1
+#define	EXPLODE_DEBRISVELRANDABS	1
 
 static void
 abelt_newgame(void)
@@ -132,8 +146,8 @@ abelt_newgame(void)
 	ab_obstacle_t	*obstacle;
 	ab_obstacle_t	*obs;
 	int		i;
-	ship_exhaust_t	exhaust[EXHAUST_MAXCNT];
-	ship_exhaust_t	*exh;
+	position_t	exhaust[EXHAUST_MAXCNT];
+	position_t	*exh;
 	int		newexhaust_ttl;
 	int		fuel_level;
 	char		fuel_gaugestr[FUEL_GAUGESTRMAX];
@@ -151,6 +165,14 @@ abelt_newgame(void)
 	float		radar_rad;
 	int		radar_angle;
 	int		radar_bufidx;
+	position_t	debris[DEBRIS_MAXCNT];
+	position_t	*deb;
+	int		explode;
+	int		explode_ttl;
+	int		explode_sprite_ttl;
+
+	/* TODO -- convert all X, Y positions to the new position_t
+	 * struct */
 	
 	obstacle = NULL;
 
@@ -193,6 +215,10 @@ abelt_newgame(void)
 	fuel_gauge_xpos = radar_xpos + RADAR_WIDTH - 1;
 	fuel_gauge_ypos = FRAME_HEIGHT - FUEL_GAUGE_HEIGHT - 1;
 
+	explode = 0;
+	explode_ttl = 0;
+	explode_sprite_ttl = 0;
+
 	for(i = 0; i < OBS_CNT; ++i) {
 		obs = &obstacle[i];
 		obs->ao_type = &ab_obstacle_type[rand() % OBS_TYPE_CNT];
@@ -225,8 +251,10 @@ abelt_newgame(void)
 		}	
 	}
 
-	memset(exhaust, 0, sizeof(ship_exhaust_t) * EXHAUST_MAXCNT);
+	memset(exhaust, 0, sizeof(position_t) * EXHAUST_MAXCNT);
 	newexhaust_ttl = 0;
+
+	memset(debris, 0, sizeof(position_t) * DEBRIS_MAXCNT);
 
 	disp_set_mode(DISP_MODE_FPS, ABELT_FPS);
 
@@ -239,7 +267,7 @@ abelt_newgame(void)
 		sbuf = ship_buf[ship_angle / 18];
 		if((rotary_get_button_state(ROTARY_RIGHT) == BUTTON_PRESSED || 
 		    rotary_get_button_state(ROTARY_LEFT) == BUTTON_PRESSED) &&
-		    fuel_level > 0){
+		    fuel_level > 0 && !explode){
 			rad = ship_angle * M_PI / 180;
 			shipabsvel = cos(rad) * shipyvel;
 			if(shipabsvel < SHIP_MAXABSVEL) {
@@ -251,19 +279,19 @@ abelt_newgame(void)
 				/* Look for free exhaust slot */
 				for(i = 0, exh = exhaust; i < EXHAUST_MAXCNT;
 				    ++i, ++exh) {
-					if(!exh->ae_ttl)
+					if(!exh->ap_ttl)
 						break;
 				}
 				if(i < EXHAUST_MAXCNT) {
-					exh->ae_xvel = shipxvel +
+					exh->ap_xvel = shipxvel +
 					    sin(rad) * EXHAUST_VELFACTOR;
-					exh->ae_yvel = shipyvel +
+					exh->ap_yvel = shipyvel +
 					    cos(rad) * EXHAUST_VELFACTOR;
-					exh->ae_ttl = EXHAUST_MAXAGE;
+					exh->ap_ttl = EXHAUST_MAXAGE;
 
-					exh->ae_xpos = shipxpos +
+					exh->ap_xpos = shipxpos +
 					    sin(rad) * SHIP_WIDTH / 2;
-					exh->ae_ypos = shipypos +
+					exh->ap_ypos = shipypos +
 					    cos(rad) * SHIP_HEIGHT / 2;
 
 				}
@@ -312,6 +340,78 @@ abelt_newgame(void)
 			    obs->ao_ypos - (int)shipypos + SHIP_DISP_YPOS);
 		}
 
+		/* Check if we are making contact with anything */
+		if(!explode && disp_contactblt(curframe, sbuf, 8, 8,
+		    SHIP_DISP_XPOS, SHIP_DISP_YPOS)) {
+printf("Explode\n");
+
+			/* Explode. */
+
+			for(i = 0, deb = debris; i < DEBRIS_MAXCNT;
+			    ++i, ++deb) {
+				deb->ap_xpos = shipxpos + SHIP_WIDTH / 2 -
+					DEBRIS_WIDTH / 2;
+				deb->ap_ypos = shipypos + SHIP_HEIGHT / 2 -
+					DEBRIS_HEIGHT / 2;
+
+
+				deb->ap_xvel = shipxvel +
+				 //   EXPLODE_DEBRISVELMINABS +
+				    (float)(rand() %
+				    (EXPLODE_DEBRISVELRANDABS * 10)) / 10 *
+				    (rand() % 2) * -1;
+				deb->ap_yvel = shipyvel +
+				//    EXPLODE_DEBRISVELMINABS +
+				    (float)(rand() %
+				    (EXPLODE_DEBRISVELRANDABS * 10)) / 10 *
+				    (rand() % 2) * -1;
+
+				deb->ap_buf = debris_buf[
+				    rand() % DEBRIS_SPRITECNT];
+
+printf("Set up debris %d: %f %f\n", i, deb->ap_xvel, deb->ap_yvel);
+			}
+
+			++explode;
+			explode_ttl = EXPLODE_FRAMECNT;
+			explode_sprite_ttl = EXPLODE_SPRITECHFRCNT;
+			
+		}
+
+		if(!explode) {
+			disp_blt(curframe, sbuf, 8, 8,
+			    SHIP_DISP_XPOS, SHIP_DISP_YPOS);
+		} else {
+			for(i = 0, deb = debris; i < DEBRIS_MAXCNT;
+			    ++i, ++deb) {
+
+				deb->ap_xpos += deb->ap_xvel;
+				deb->ap_ypos += deb->ap_yvel;
+
+				disp_blt(curframe, deb->ap_buf, DEBRIS_BUFSIZ,
+			            DEBRIS_WIDTH,
+				    deb->ap_xpos - (int)shipxpos +
+				    SHIP_DISP_XPOS,
+				    deb->ap_ypos - (int)shipypos +
+				    SHIP_DISP_YPOS);
+			}
+
+			--explode_ttl;
+			if(!explode_ttl)
+				goto end_label;
+
+			--explode_sprite_ttl;
+			if(!explode_sprite_ttl) {
+				/* Change debris sprites */
+				
+				for(i = 0, deb = debris; i < DEBRIS_MAXCNT;
+				    ++i, ++deb) {
+					deb->ap_buf = debris_buf[
+					    rand() % DEBRIS_SPRITECNT];
+				}
+				explode_sprite_ttl = EXPLODE_SPRITECHFRCNT;
+			}
+		}
 		
 		if(station_xpos > (int)shipxpos - FRAME_WIDTH &&
 		    station_xpos < (int)shipxpos + FRAME_WIDTH &&
@@ -335,25 +435,22 @@ abelt_newgame(void)
 
 			station_flipcnt = 0;
 		}
-
-		disp_blt(curframe, sbuf, 8, 8,
-		    SHIP_DISP_XPOS, SHIP_DISP_YPOS);
-
+		
 		for(i = 0, exh = exhaust; i < EXHAUST_MAXCNT; ++i, ++exh) {
-			if(!exh->ae_ttl)
+			if(!exh->ap_ttl)
 				continue;
 
-			exh->ae_xpos += exh->ae_xvel;
-			exh->ae_ypos += exh->ae_yvel;
+			exh->ap_xpos += exh->ap_xvel;
+			exh->ap_ypos += exh->ap_yvel;
 
 			disp_blt(curframe, exhaust_buf[i%2], EXHAUST_BUFSIZ,
 			    EXHAUST_WIDTH,
-			    (int)exh->ae_xpos - (int)shipxpos + SHIP_DISP_XPOS +
+			    (int)exh->ap_xpos - (int)shipxpos + SHIP_DISP_XPOS +
 			    + SHIP_WIDTH / 2 - EXHAUST_WIDTH / 2,
-                            (int)exh->ae_ypos - (int)shipypos + SHIP_DISP_YPOS +
+                            (int)exh->ap_ypos - (int)shipypos + SHIP_DISP_YPOS +
 			    + SHIP_HEIGHT / 2 - EXHAUST_HEIGHT / 2);
 
-			--exh->ae_ttl;
+			--exh->ap_ttl;
 		}
 
 		if(newexhaust_ttl)
@@ -690,4 +787,38 @@ static uint8_t radar_buf[8][22] = {
 	{  0xff, 0x01, 0x01, 0x01, 0x05, 0x13, 0x05, 0x01,
 	   0x29, 0x11, 0xff, 0x01, 0x01, 0x01, 0x01, 0x01,
 	   0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
+};
+
+
+static uint8_t debris_buf[10][8] = {
+
+	/* "Space_Debris_0" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x10, 0x04, 0x0c, 0x00, 0x00, 0x00},
+
+	/* "Space_Debris_1" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x08, 0x08, 0x04, 0x04, 0x00, 0x00},
+
+	/* "Space_Debris_2" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x00, 0x0c, 0x08, 0x10, 0x00, 0x00},
+
+	/* "Space_Debris_3" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x00, 0x30, 0x1c, 0x00, 0x00, 0x00},
+
+	/* "Space_Debris_4" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x00, 0x10, 0x1c, 0x00, 0x00, 0x00},
+
+	/* "Space_Debris_5" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x18, 0x10, 0x10, 0x00, 0x00, 0x00},
+
+	/* "Space_Debris_6" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x08, 0x08, 0x04, 0x08, 0x00, 0x00},
+
+	/* "Space_Debris_7" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x08, 0x14, 0x10, 0x00, 0x00, 0x00},
+
+	/* "Space_Debris_8" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x10, 0x10, 0x08, 0x04, 0x00, 0x00},
+
+	/* "Space_Debris_9" (8x8): vertical mapping, 64 pixels, 8 bytes */
+	{  0x00, 0x00, 0x08, 0x04, 0x18, 0x08, 0x00, 0x00}
 };
