@@ -93,6 +93,62 @@ own thread as you screw them in for the first time. Do not overtighten.
 
 ## The graphics library
 
+### Framebuffers
+
+Once a module's start function is called, the module is given complete control
+over the console, including the display. 
+
+Graphics are done by drawing into a framebuffer, ie. memory buffer that
+represents the contents of the screen. In the case of `microarcade`, the
+display is 128x64 pixels, and each pixel can be represented by one bit
+(pixel on/off) so the framebuffer is 1024 bytes large (1024 * 68 / 8). Once the
+app finishes drawing the frame, it sends it to the display (more on this
+below).
+
+To elimiate the need for data conversions when transmitting to the display,
+in-memory framebuffer bit configuration follows that of the SSD1309 display
+controller, and is *vertical*. This means that one byte of framebuffer data
+represents a one pixel wide and 8 pixels tall section of the screen.
+In most cases, applications don't have to worry about this since they won't
+set bits in the framebuffer direcly, but instead use one of the drawing
+functions provided.
+
+### Sprites, tilemaps, fonts/text, shapes
+
+Efficient support for all these are supported by `microarcade`.
+
+`disp_blt()` is one of the most core functions in the library and is used not
+only to blit sprites into a frame, but also called by most other graphics
+functions. Whatever the application needs to draw that is not supporte by
+built-in functions -- if it can do so by using one or a few `disp_blt()` calls,
+it will be fast.
+
+Sprite buffer data has to be vertically bitmapped. Check out
+my CLI sprite & font editor/animator
+[sprited](https://github.com/bmink/sprited) for creating your sprites. It can
+also dump sprite data in C code syntax (horizontally or vertically mapped),
+which can be copy and pasted straight into source files.
+
+
+### The framebuffer pool
+
+A module may want to allocate an internal copy of a framebuffer for efficiency.
+For example, it may want to draw a static background into a framebuffer once
+and then keep copying the contents of this framebuffer into the main
+framebuffer before overlaying sprites.
+
+A 1K framebuffer generally is too large to be put on the stack so these
+copies will have to be allocated on the heap. To reduce the number of memory
+allocations and potential fragmentation, a frame buffer pool is provided.
+Applications can request a framebuffer using ` disp_getframebuf()`.
+Framebuffers are released by calling `disp_releaseframebuf()`. The size of the
+framebuffer pool is limited (8 by default), so applications should take care
+not to use more than they absolutely need and they must have released all
+all framebuffers they held when they exit.
+
+
+## Display modes
+
 Generally, applications are expected to draw into the frame buffer pointed to
 by `curframe` using the provided functions such as `disp_blt()` (for bliting
 sprites), `disp_drawbox()` or `disp_puttext()`. Then they are expected to tell
