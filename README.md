@@ -89,7 +89,7 @@ own thread as you screw them in for the first time. Do not overtighten.
 
 # Notes on the firmware / Writing modules (applications)
 
-## The graphics library
+## The Graphics Engine
 
 ### Framebuffers
 
@@ -100,7 +100,7 @@ Graphics are done by drawing into a framebuffer, ie. a memory buffer that
 represents the contents of the screen. In the case of `microarcade`, the
 display is 128x64 pixels, and each pixel can be represented by one bit
 (pixel on/off) so the framebuffer is 1024 bytes large (128 * 64 / 8). Once the
-app finishes drawing the frame, it instructs the display library to send
+app finishes drawing the frame, it instructs the graphics engine to send
 it to the display. Data is sent using DMA so the application doesn't have to
 wait for it to complete but can go about doing other things. More detail
 on all this later...
@@ -117,7 +117,7 @@ functions provided, which all support vertical bit mapping.
 
 Efficient support for all these are supported, see `disp.h`.
 
-`disp_blt()` is one of the most core functions in the library and is used not
+`disp_blt()` is one of the most core functions in the engine and is used not
 only to blit (overlay) sprites into a frame, but also called by most other
 graphics functions. Whatever the application needs to draw that is not
 supported by built-in functions -- if it can do so by using one or a few
@@ -151,7 +151,7 @@ released all framebuffers before they exit.
 
 As mentioned, applications are expected to draw into the frame buffer pointed to
 by `curframe` using the provided drawing, sprite bliting and text printing
-functions. Then they are expected to tell the library to send this frame to
+functions. Then they are expected to tell the engine to send this frame to
 the display.
 
 Two modes for sending frames to the display are supported:
@@ -225,8 +225,8 @@ while(1) {
 
 ```
 
-In "FPS mode", the application first lets the display library know at what
-rate the display should be refreshed. This will prompt the library to do some
+In "FPS mode", the application first lets the graphics engine know at what
+rate the display should be refreshed. This will prompt the engine to do some
 internal time calculations to set up FPS mode. The application then is
 responsible for redrawing the screen and enqueuing it for sending at the rate
 it previously specified. It does so by calling `sleep_sendswapcurframe()`.
