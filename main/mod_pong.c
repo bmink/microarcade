@@ -118,13 +118,13 @@ pong_newgame(int lplayercomp, int rplayercomp)
 	rconf[ROTARY_LEFT].rc_min = 0;
 	rconf[ROTARY_LEFT].rc_max = FRAME_HEIGHT - PADDLE_HEIGHT - 1;
 	rconf[ROTARY_LEFT].rc_start = (FRAME_HEIGHT - PADDLE_HEIGHT) / 2;
-	rconf[ROTARY_LEFT].rc_step_value = 2;
+	rconf[ROTARY_LEFT].rc_step_value = 3;
 
 	rconf[ROTARY_RIGHT].rc_style = ROT_STYLE_BOUND;
 	rconf[ROTARY_RIGHT].rc_min = 0;
 	rconf[ROTARY_RIGHT].rc_max = FRAME_HEIGHT - PADDLE_HEIGHT - 1;
 	rconf[ROTARY_RIGHT].rc_start = (FRAME_HEIGHT - PADDLE_HEIGHT) / 2;
-	rconf[ROTARY_RIGHT].rc_step_value = 2;
+	rconf[ROTARY_RIGHT].rc_step_value = 3;
 
 	ret = rotary_reconfig(rconf, ROTARY_CNT);	
 	if(ret != ESP_OK) {

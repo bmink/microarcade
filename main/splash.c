@@ -5,7 +5,9 @@
 #include "font_c64.h"
 #include "font_picopixel.h"
 #include "microarcade.h"
+#include "esp_rotary.h"
 #include "disp.h"
+#include "local_context.h"
 
 
 uint8_t	domy_buf[24][128];	/* See bottom of file for data */
@@ -40,16 +42,20 @@ uint8_t	domy_buf[24][128];	/* See bottom of file for data */
 void
 splash(void)
 {
-	int	i;
-	int	itercnt;
-	int	domy_idx;
-	int	domy_reveal;
-	int	title_on;
-	int	flicker_dur;
-	int	second;
-	char	subtitle[SPLASH_SUBTITLE_LEN + 1];
-	int	startsub;
-	int	t;
+	int		i;
+	int		itercnt;
+	int		domy_idx;
+	int		domy_reveal;
+	int		title_on;
+	int		flicker_dur;
+	int		second;
+	char		subtitle[SPLASH_SUBTITLE_LEN + 1];
+	int		startsub;
+	int		t;
+	local_context_t	lcontext;
+	int		pressedcnt;
+
+	save_lcontext(&lcontext);
 
 	disp_clearcurframe();
 		
@@ -57,6 +63,7 @@ splash(void)
 
 	flicker_dur = 0;
 	title_on = 0;
+	pressedcnt = 0;;
 
 	domy_idx = 0;
 	domy_reveal = DOMY_HEIGHT / 2;
@@ -64,6 +71,13 @@ splash(void)
 	startsub = SPLASH_SUBTITLE_STARTSECOND * SPLASH_FPS;
 	memset(subtitle, 0, SPLASH_SUBTITLE_LEN + 1);
 	for(i = 0; i < itercnt; ++i) {
+
+		if((rotary_get_button_state(ROTARY_RIGHT) == BUTTON_PRESSED ||
+                    rotary_get_button_state(ROTARY_LEFT) == BUTTON_PRESSED))
+			++pressedcnt;
+		else
+		if(pressedcnt) /* Bail when a button was pressed and released */
+			break;
 
 		second = i / SPLASH_FPS;
 
@@ -173,6 +187,8 @@ splash(void)
 			
 		disp_sleep_sendswapcurframe();
 	}
+
+	restore_lcontext(&lcontext);
 }
 
 

@@ -111,7 +111,7 @@ app_main(void)
 
 	rconf[ROTARY_RIGHT].rc_pin_a = 21;
 	rconf[ROTARY_RIGHT].rc_pin_b = 47;
-	rconf[ROTARY_RIGHT].rc_pin_button = 48;
+	rconf[ROTARY_RIGHT].rc_pin_button = 20;
 
 	if(rotary_config(rconf, ROTARY_CNT) != ESP_OK) {
 		ESP_LOGE(ltag, "Could not configure rotary encoders\n");

@@ -7,6 +7,7 @@
 #include "disp.h"
 #include "font.h"
 #include "font_picopixel.h"
+#include "font_c64.h"
 #include "ui_menu.h"
 #include "local_context.h"
 
@@ -121,12 +122,18 @@ typedef struct position {
 #define DEBRIS_HEIGHT		8
 #define DEBRIS_MAXCNT		5
 
-#define EXPLODE_FRAMECNT	ABELT_FPS * 3	/* Explosions lasts 3 sec */
 #define EXPLODE_SPRITECHFRCNT	100 / (1000 / ABELT_FPS)
 						 /* Change debris sprite
 						  * every ~80 ms */
-#define	EXPLODE_DEBRISVELMINABS		1
-#define	EXPLODE_DEBRISVELRANDABS	1
+#define	EXPLODE_DEBRISVELRANDABS	.5
+
+#define END_FRAMECNT		ABELT_FPS * 5	/* End animations last 3 sec */
+
+#define SHIP_WINDIST		10
+#define MSG_GAMELOST		"You lose!"
+#define MSG_GAMELOST_WIDTH	9 * 8
+#define MSG_GAMEWON		"Success!"
+#define MSG_GAMEWON_WIDTH	8 * 8
 
 static void
 abelt_newgame(void)
@@ -168,8 +175,9 @@ abelt_newgame(void)
 	position_t	debris[DEBRIS_MAXCNT];
 	position_t	*deb;
 	int		explode;
-	int		explode_ttl;
+	int		gamewon;
 	int		explode_sprite_ttl;
+	int		end_ttl;
 
 	/* TODO -- convert all X, Y positions to the new position_t
 	 * struct */
@@ -216,7 +224,8 @@ abelt_newgame(void)
 	fuel_gauge_ypos = FRAME_HEIGHT - FUEL_GAUGE_HEIGHT - 1;
 
 	explode = 0;
-	explode_ttl = 0;
+	gamewon = 0;
+	end_ttl = 0;
 	explode_sprite_ttl = 0;
 
 	for(i = 0; i < OBS_CNT; ++i) {
@@ -301,8 +310,10 @@ abelt_newgame(void)
 			--fuel_level;
 		}
 
-		shipxpos += shipxvel;
-		shipypos += shipyvel;
+		if(!gamewon) {
+			shipxpos += shipxvel;
+			shipypos += shipyvel;
+		}
 
 #if 0
 		if(shipxpos < 0)
@@ -343,8 +354,6 @@ abelt_newgame(void)
 		/* Check if we are making contact with anything */
 		if(!explode && disp_contactblt(curframe, sbuf, 8, 8,
 		    SHIP_DISP_XPOS, SHIP_DISP_YPOS)) {
-printf("Explode\n");
-
 			/* Explode. */
 
 			for(i = 0, deb = debris; i < DEBRIS_MAXCNT;
@@ -356,32 +365,46 @@ printf("Explode\n");
 
 
 				deb->ap_xvel = shipxvel +
-				 //   EXPLODE_DEBRISVELMINABS +
 				    (float)(rand() %
-				    (EXPLODE_DEBRISVELRANDABS * 10)) / 10 *
-				    (rand() % 2) * -1;
+				    (int)(EXPLODE_DEBRISVELRANDABS * 10)) / 10 *
+				    ((rand() % 2) ? 1 : -1);
 				deb->ap_yvel = shipyvel +
-				//    EXPLODE_DEBRISVELMINABS +
 				    (float)(rand() %
-				    (EXPLODE_DEBRISVELRANDABS * 10)) / 10 *
-				    (rand() % 2) * -1;
+				    (int)(EXPLODE_DEBRISVELRANDABS * 10)) / 10 *
+				    ((rand() % 2) ? 1 : -1);
 
 				deb->ap_buf = debris_buf[
 				    rand() % DEBRIS_SPRITECNT];
 
-printf("Set up debris %d: %f %f\n", i, deb->ap_xvel, deb->ap_yvel);
+printf("Setup debris %d: xvel=%f yel=%f\n", i, deb->ap_xvel, deb->ap_yvel);
+
 			}
 
 			++explode;
-			explode_ttl = EXPLODE_FRAMECNT;
 			explode_sprite_ttl = EXPLODE_SPRITECHFRCNT;
-			
+			end_ttl = END_FRAMECNT;
 		}
 
-		if(!explode) {
+		if(!explode && !gamewon) {
 			disp_blt(curframe, sbuf, 8, 8,
 			    SHIP_DISP_XPOS, SHIP_DISP_YPOS);
 		} else {
+			--end_ttl;
+			if(!end_ttl)
+				goto end_label;
+		}
+
+		if(!gamewon &&
+		    (fabs((station_xpos + STATION_WIDTH / 2) -
+		    (shipxpos + SHIP_WIDTH / 2)) < SHIP_WINDIST) &&
+		    (fabs((station_ypos + STATION_HEIGHT / 2) -
+		    (shipypos + SHIP_HEIGHT / 2)) < SHIP_WINDIST)) {
+			++gamewon;
+			end_ttl = END_FRAMECNT;
+		}
+
+
+		if(explode) {	
 			for(i = 0, deb = debris; i < DEBRIS_MAXCNT;
 			    ++i, ++deb) {
 
@@ -396,10 +419,6 @@ printf("Set up debris %d: %f %f\n", i, deb->ap_xvel, deb->ap_yvel);
 				    SHIP_DISP_YPOS);
 			}
 
-			--explode_ttl;
-			if(!explode_ttl)
-				goto end_label;
-
 			--explode_sprite_ttl;
 			if(!explode_sprite_ttl) {
 				/* Change debris sprites */
@@ -411,7 +430,26 @@ printf("Set up debris %d: %f %f\n", i, deb->ap_xvel, deb->ap_yvel);
 				}
 				explode_sprite_ttl = EXPLODE_SPRITECHFRCNT;
 			}
+		
+			disp_drawbox(curframe,
+			    (FRAME_WIDTH - MSG_GAMELOST_WIDTH) / 2 - 2, 0,
+			    (FRAME_WIDTH + MSG_GAMELOST_WIDTH) / 2 + 2, 12,
+			    DISP_DRAW_OFF);
+			disp_puttext(curframe, MSG_GAMELOST, &font_c64,
+			(FRAME_WIDTH - MSG_GAMELOST_WIDTH) / 2, 2);
+			
+		} else
+		if(gamewon) {
+			disp_drawbox(curframe,
+			    (FRAME_WIDTH - MSG_GAMEWON_WIDTH) / 2 - 2, 0,
+			    (FRAME_WIDTH + MSG_GAMEWON_WIDTH) / 2 + 2, 12,
+			    DISP_DRAW_OFF);
+			disp_puttext(curframe, MSG_GAMEWON, &font_c64,
+			(FRAME_WIDTH - MSG_GAMEWON_WIDTH) / 2, 2);
 		}
+
+
+
 		
 		if(station_xpos > (int)shipxpos - FRAME_WIDTH &&
 		    station_xpos < (int)shipxpos + FRAME_WIDTH &&
@@ -793,32 +831,32 @@ static uint8_t radar_buf[8][22] = {
 static uint8_t debris_buf[10][8] = {
 
 	/* "Space_Debris_0" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x10, 0x04, 0x0c, 0x00, 0x00, 0x00},
+	{  0x00, 0x00, 0x00, 0x04, 0x0c, 0x00, 0x00, 0x00},
 
 	/* "Space_Debris_1" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x08, 0x08, 0x04, 0x04, 0x00, 0x00},
+	{  0x00, 0x00, 0x00, 0x08, 0x04, 0x04, 0x00, 0x00},
 
 	/* "Space_Debris_2" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x00, 0x0c, 0x08, 0x10, 0x00, 0x00},
+	{  0x00, 0x00, 0x00, 0x0c, 0x08, 0x00, 0x00, 0x00},
 
 	/* "Space_Debris_3" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x00, 0x30, 0x1c, 0x00, 0x00, 0x00},
+	{  0x00, 0x00, 0x00, 0x30, 0x18, 0x00, 0x00, 0x00},
 
 	/* "Space_Debris_4" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x00, 0x10, 0x1c, 0x00, 0x00, 0x00},
+	{  0x00, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00},
 
 	/* "Space_Debris_5" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x18, 0x10, 0x10, 0x00, 0x00, 0x00},
+	{  0x00, 0x00, 0x08, 0x10, 0x10, 0x00, 0x00, 0x00},
 
 	/* "Space_Debris_6" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x08, 0x08, 0x04, 0x08, 0x00, 0x00},
+	{  0x00, 0x00, 0x08, 0x08, 0x04, 0x00, 0x00, 0x00},
 
 	/* "Space_Debris_7" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x08, 0x14, 0x10, 0x00, 0x00, 0x00},
+	{  0x00, 0x00, 0x08, 0x14, 0x00, 0x00, 0x00, 0x00},
 
 	/* "Space_Debris_8" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x10, 0x10, 0x08, 0x04, 0x00, 0x00},
+	{  0x00, 0x00, 0x00, 0x10, 0x08, 0x04, 0x00, 0x00},
 
 	/* "Space_Debris_9" (8x8): vertical mapping, 64 pixels, 8 bytes */
-	{  0x00, 0x00, 0x08, 0x04, 0x18, 0x08, 0x00, 0x00}
+	{  0x00, 0x00, 0x08, 0x00, 0x08, 0x08, 0x00, 0x00}
 };

@@ -219,7 +219,7 @@ while(1) {
 	if(barwidth == 0)
 		inc = 1;
 
-	/* Sleep until it's time to send the next frame, then send to display */
+	/* Sleep until it's time to send this frame, then send to display */
 	disp_sleep_sendswapcurframe();
 }
 
