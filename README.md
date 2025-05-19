@@ -250,7 +250,7 @@ block until the transaction is complete, but under the hood, it does use
 DMA (if the driver was configured to do so, which the engine does):
 
 Internally, `spi_device_transmit()` calls `spi_device_queue_trans()` followed
-by `spi_device_get_trans_result()`. `spi_device_queue_trans()' enqueues the
+by `spi_device_get_trans_result()`. `spi_device_queue_trans()` enqueues the
 transaction via DMA, and `spi_device_get_trans_result()` blocks until the
 transaction finishes. The reason this works for us is that the frame sender
 loop is in its own task. After the transaction is enqueued,
