@@ -1,3 +1,5 @@
+![Demo of microarcade](https://bmink.tech/assets/microarcade.gif)
+
 # microarcade
 
 A tiny gaming console with 1-bit graphics and rotary encoders. It is built
