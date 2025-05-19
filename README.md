@@ -239,8 +239,30 @@ drop the frame and make a note of this. (The internal variable
 `disp_dropped_framecnt` can be queried for the number of times a frame
 was dropped.)
 
+## DMA
 
-## The local context
+Frame data is sent to the display using DMA to offload this work from the
+CPU, though this may not be immediately obvious when looking at the code.
+The call used to transmit data is `spi_device_transmit()`. This call will
+block until the transaction is complete, but under the hood, it does use
+DMA (if the driver was configured to do so, which the engine does):
+
+Internally, `spi_device_transmit()` calls `spi_device_queue_trans()` followed
+by `spi_device_get_trans_result()`. `spi_device_queue_trans()' enqueues the
+transaction via DMA, and `spi_device_get_trans_result()` blocks until the
+transaction finishes. The reason this works for us is that the frame sender
+loop is in its own task. After the transaction is enqueued,
+`spi_device_get_trans_result()` will block on a queue internal to the SPI
+driver, ie. it will yield to the scheduler to run other tasks (such as the
+code to generate the next frame).
+
+As always with DMA, care must be taken to not access a buffer that is being
+used by DMA is not being accessed until the transaction finished, this is
+accomplished by the ping-pong frame technique accomplished by the "swap" part
+of `sendswapcurframe()`.
+
+
+# The local context
 
 `microarcade` is a collection of menus and modules. Menus will call modules
 (games) and modules themselves will display their own menus at times.

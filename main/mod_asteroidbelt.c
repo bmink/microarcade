@@ -48,8 +48,9 @@ ab_obstacle_type_t	ab_obstacle_type[OBS_TYPE_CNT] ={
 };
 
 
-#define OBS_CNT	150
-//#define OBS_CNT	350
+//#define OBS_CNT	150
+#define OBS_CNT	200
+//#define OBS_CNT	500
 
 typedef struct ab_obstacle {
 	ab_obstacle_type_t *ao_type;
@@ -231,18 +232,6 @@ abelt_newgame(void)
 	for(i = 0; i < OBS_CNT; ++i) {
 		obs = &obstacle[i];
 		obs->ao_type = &ab_obstacle_type[rand() % OBS_TYPE_CNT];
-#if 0
-		while(1) {
-			obs->ao_xpos = rand() % UNIVERSE_WIDTH;
-			if(abs((int)shipxpos - obs->ao_xpos) >= OBS_MINDIST_X)
-				break;
-		}	
-		while(1) {
-			obs->ao_ypos = rand() % UNIVERSE_HEIGHT;
-			if(abs((int)shipypos - obs->ao_ypos) >= OBS_MINDIST_Y)
-				break;
-		}	
-#endif
 
 		while(1) {
 			obs->ao_xpos = rand() % UNIVERSE_WIDTH;
