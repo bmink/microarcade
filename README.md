@@ -1,4 +1,4 @@
-![Demo of microarcade](https://bmink.tech/assets/microarcade.gif)
+![Demo of microarcade](demo/microarcade.gif)
 
 # microarcade
 
