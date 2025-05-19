@@ -1,11 +1,3 @@
-* Move global variables in modules into a state struct that is allocated
-in the start function to reduce static memory usage
-* Splash screen / restart_reason()
-* What should disp library be called?
-* in fps mode, keep track of dropped frames and compute running avg of budget
-* figure out why onboard LED sometimes on. also blink on error. Need to rewire a rotary? (apparently this LED is driven by gpio48 and uses ws2812 protocol.
-implement?)
 * Add a function for querying disp_dropped_framecnt. Does the access have
 to be protected using the mutex? (I think probably not, as long as the app
 is singlethreaded. But verify this)
-* Choose a license
