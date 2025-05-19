@@ -252,16 +252,18 @@ DMA (if the driver was configured to do so, which the engine does):
 Internally, `spi_device_transmit()` calls `spi_device_queue_trans()` followed
 by `spi_device_get_trans_result()`. `spi_device_queue_trans()` enqueues the
 transaction via DMA, and `spi_device_get_trans_result()` blocks until the
-transaction finishes. The reason this works for us is that the frame sender
-loop is in its own task. After the transaction is enqueued,
-`spi_device_get_trans_result()` will block on a queue internal to the SPI
-driver, ie. it will yield to the scheduler to run other tasks (such as the
+transaction finishes. The reason this works for us is that the graphics
+engine's frame sender loop is in its own task. After the transaction is
+enqueued, `spi_device_get_trans_result()` will block on a queue internal to the
+SPI driver, ie. it will yield to the scheduler to run other tasks (such as the
 code to generate the next frame).
 
 As always with DMA, care must be taken to not access a buffer that is being
 used by DMA is not being accessed until the transaction finished, this is
 accomplished by the ping-pong frame technique accomplished by the "swap" part
-of `sendswapcurframe()`.
+of `sendswapcurframe()`. When an app call this function, `curframe` will be
+swapped for a new empty framebuffer to continue drawing into, while the "old"
+frame will be sent to the display.
 
 
 # The local context
