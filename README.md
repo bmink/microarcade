@@ -248,7 +248,7 @@ CPU, though this may not be immediately obvious when looking at the code.
 The call used to transmit data is `spi_device_transmit()`. This call will
 block until the transaction is complete, but under the hood, it does use
 DMA (if the driver was configured to do so, which the engine does). This
-becomes clear if we examine the source code of `esp-idf`:
+becomes clear when we examine the source code of `esp-idf`:
 
 Internally, `spi_device_transmit()` calls `spi_device_queue_trans()` followed
 by `spi_device_get_trans_result()`. `spi_device_queue_trans()` enqueues the
