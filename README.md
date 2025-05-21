@@ -107,7 +107,7 @@ it to the display. Data is sent using DMA so the application doesn't have to
 wait for it to complete but can go about doing other things. More detail
 on all this later...
 
-To elimiate the need for data conversions when transmitting to the display,
+To eliminate the need for data conversions when transmitting to the display,
 in-memory framebuffer bit mapping follows that of the SSD1309 display
 controller, and is *vertical*. This means that one byte of framebuffer data
 represents a one-pixel-wide by 8-pixels-tall section of the screen.
@@ -146,7 +146,7 @@ Applications can request a framebuffer using `disp_getframebuf()`.
 Framebuffers are released by calling `disp_releaseframebuf()`. The size of the
 framebuffer pool is limited (8 by default), so applications should take care
 not to request & hold more than they absolutely need and they must
-released all framebuffers before they exit.
+release all framebuffers before they exit.
 
 
 ## Display modes
@@ -247,7 +247,8 @@ Frame data is sent to the display using DMA to offload this work from the
 CPU, though this may not be immediately obvious when looking at the code.
 The call used to transmit data is `spi_device_transmit()`. This call will
 block until the transaction is complete, but under the hood, it does use
-DMA (if the driver was configured to do so, which the engine does):
+DMA (if the driver was configured to do so, which the engine does). This
+becomes clear if we examine the source code of `esp-idf`:
 
 Internally, `spi_device_transmit()` calls `spi_device_queue_trans()` followed
 by `spi_device_get_trans_result()`. `spi_device_queue_trans()` enqueues the
